@@ -10,7 +10,27 @@ permissions:
   contents: write
 
 jobs:
+  # Prüft die Firestore-Regeln im Emulator (siehe test_rules/).
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: test_rules/package-lock.json
+      - run: npm ci
+        working-directory: test_rules
+      - run: npm test
+        working-directory: test_rules
+
   build:
+    needs: rules
     runs-on: ubuntu-latest
     env:
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

@@ -32,7 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _busy = true;
       _error = null;
     });
-    final auth = FirebaseAuth.instance;
+    final auth = ref.read(firebaseAuthProvider);
     try {
       if (_register) {
         final name = _name.text.trim();

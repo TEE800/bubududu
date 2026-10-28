@@ -5,8 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'household_repository.dart';
 import 'models.dart';
 
+/// Im Test durch ein Fake-Login ersetzbar.
+final firebaseAuthProvider = Provider<FirebaseAuth>(
+  (ref) => FirebaseAuth.instance,
+);
+
 final authStateProvider = StreamProvider<User?>(
-  (ref) => FirebaseAuth.instance.authStateChanges(),
+  (ref) => ref.watch(firebaseAuthProvider).authStateChanges(),
 );
 
 final householdRepositoryProvider = Provider<HouseholdRepository>(

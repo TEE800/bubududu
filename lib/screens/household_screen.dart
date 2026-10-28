@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -82,7 +81,7 @@ class HouseholdScreen extends ConsumerWidget {
             ],
             const SizedBox(height: 32),
             OutlinedButton.icon(
-              onPressed: () => FirebaseAuth.instance.signOut(),
+              onPressed: () => ref.read(firebaseAuthProvider).signOut(),
               icon: const Icon(Icons.logout),
               label: const Text('Abmelden'),
             ),

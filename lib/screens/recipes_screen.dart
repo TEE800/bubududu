@@ -1,9 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import '../data/providers.dart';
+import '../data/store.dart';
 
 /// Tab "Rezepte": gemeinsame Rezeptsammlung des Haushalts.
 class RecipesScreen extends ConsumerWidget {
@@ -102,6 +102,8 @@ class RecipeDetailScreen extends ConsumerWidget {
     final recipes = ref.watch(recipesProvider(householdId));
     final recipe = recipes.value?.where((r) => r.id == recipeId).firstOrNull;
     final household = ref.watch(householdProvider(householdId)).value;
+    // Hält die Einkaufsliste geladen, damit die Auswahl weiß, was schon drauf steht.
+    ref.watch(shoppingItemsProvider(householdId));
 
     if (recipe == null) {
       return Scaffold(
@@ -233,11 +235,7 @@ class _SendToShoppingSheetState extends ConsumerState<_SendToShoppingSheet> {
     final messenger = ScaffoldMessenger.of(context);
     await ref
         .read(householdRepositoryProvider)
-        .addShoppingItems(
-          widget.householdId,
-          texts,
-          FirebaseAuth.instance.currentUser!.uid,
-        );
+        .addShoppingItems(widget.householdId, texts, ref.read(uidProvider));
     if (!mounted) return;
     Navigator.of(context).pop();
     messenger.showSnackBar(
@@ -355,7 +353,7 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
               .where((l) => l.isNotEmpty)
               .toList(),
           instructions: _instructions.text.trim(),
-          uid: FirebaseAuth.instance.currentUser!.uid,
+          uid: ref.read(uidProvider),
         );
     if (mounted) Navigator.of(context).pop();
   }
