@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
 import '../widgets/common.dart';
@@ -33,6 +34,29 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
     _input.clear();
   }
 
+  /// Löscht sofort, lässt sich aber ein paar Sekunden lang rückgängig machen.
+  void _delete(ShoppingItem item) {
+    final repo = ref.read(householdRepositoryProvider);
+    final uid = ref.read(uidProvider);
+    repo.deleteShoppingItem(widget.householdId, item.id);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('„${item.text}“ gelöscht'),
+          action: SnackBarAction(
+            label: 'Rückgängig',
+            onPressed: () => repo.addShoppingItem(
+              widget.householdId,
+              item.text,
+              item.addedBy.isEmpty ? uid : item.addedBy,
+              done: item.done,
+            ),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = ref.read(householdRepositoryProvider);
@@ -45,7 +69,13 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
         actions: [
           if (items.value?.any((i) => i.done) ?? false)
             TextButton.icon(
-              onPressed: () => repo.clearDoneItems(widget.householdId),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+              ),
+              onPressed: () => repo.clearDoneItems(widget.householdId, [
+                for (final i in items.value!)
+                  if (i.done) i.id,
+              ]),
               icon: const Icon(Icons.delete_sweep_outlined),
               label: const Text('Erledigte löschen'),
             ),
@@ -60,6 +90,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
               decoration: InputDecoration(
                 hintText: 'Was brauchen wir?',
                 suffixIcon: IconButton(
+                  tooltip: 'Hinzufügen',
                   icon: const Icon(Icons.add),
                   onPressed: _add,
                 ),
@@ -98,8 +129,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                         padding: const EdgeInsets.only(right: 16),
                         child: const Icon(Icons.delete),
                       ),
-                      onDismissed: (_) =>
-                          repo.deleteShoppingItem(widget.householdId, item.id),
+                      onDismissed: (_) => _delete(item),
                       child: CheckboxListTile(
                         value: item.done,
                         onChanged: (v) => repo.setShoppingItemDone(
@@ -128,10 +158,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                         secondary: IconButton(
                           tooltip: 'Löschen',
                           icon: const Icon(Icons.close),
-                          onPressed: () => repo.deleteShoppingItem(
-                            widget.householdId,
-                            item.id,
-                          ),
+                          onPressed: () => _delete(item),
                         ),
                       ),
                     );

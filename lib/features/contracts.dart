@@ -61,18 +61,23 @@ final contractsProvider = Provider.family<AsyncValue<List<Contract>>, String>(
       .watch(
         collectionProvider((householdId: householdId, collection: 'contracts')),
       )
-      .whenData((docs) {
-        final list = docs.map(Contract.fromDoc).toList();
-        list.sort((a, b) {
-          final ad = a.cancelBy, bd = b.cancelBy;
-          if (ad != null && bd != null) return ad.compareTo(bd);
-          if (ad != null) return -1;
-          if (bd != null) return 1;
-          return a.name.compareTo(b.name);
-        });
-        return list;
-      }),
+      .whenData((docs) => sortContracts(docs.map(Contract.fromDoc).toList())),
 );
+
+/// Kommende Kündigungsfristen zuerst (die nächste oben), danach der Rest
+/// alphabetisch. Abgelaufene Fristen rutschen nach unten.
+List<Contract> sortContracts(List<Contract> list, {DateTime? now}) {
+  final t = dateOnly(now ?? DateTime.now());
+  DateTime? upcoming(Contract c) =>
+      c.cancelBy == null || c.cancelBy!.isBefore(t) ? null : c.cancelBy;
+  return list..sort((a, b) {
+    final ad = upcoming(a), bd = upcoming(b);
+    if (ad != null && bd != null) return ad.compareTo(bd);
+    if (ad != null) return -1;
+    if (bd != null) return 1;
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  });
+}
 
 /// Kündigungsfristen in den nächsten [days] Tagen (noch nicht abgelaufen).
 List<Contract> upcomingDeadlines(

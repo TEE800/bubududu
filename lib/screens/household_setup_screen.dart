@@ -40,9 +40,14 @@ class _HouseholdSetupScreenState extends ConsumerState<HouseholdSetupScreen> {
     try {
       await action(user.uid, displayName);
     } on StateError catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'Das hat nicht geklappt: $e');
+      if (mounted) {
+        setState(
+          () => _error =
+              'Das hat nicht geklappt. Bist du mit dem Internet verbunden? ($e)',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -85,7 +85,7 @@ List<Reminder> computeReminders({
     if (e.yearly) {
       add(
         '$key:eve',
-        _at(o.day.subtract(const Duration(days: 1)), 18),
+        _at(addDays(o.day, -1), 18),
         'Morgen: ${e.title}',
         'Schon an ein Geschenk gedacht?',
       );
@@ -108,7 +108,7 @@ List<Reminder> computeReminders({
     final key = 'contract:${c.id}:${by.toIso8601String()}';
     add(
       '$key:7',
-      _at(by.subtract(const Duration(days: 7)), 9),
+      _at(addDays(by, -7), 9),
       '${c.name}: noch 7 Tage',
       'Bis ${formatShortDate(by)} kündigen oder verlängern lassen.',
     );
@@ -135,7 +135,7 @@ List<Reminder> computeReminders({
     final key = 'health:${h.id}:${h.date.toIso8601String()}';
     add(
       '$key:eve',
-      _at(h.date.subtract(const Duration(days: 1)), 19),
+      _at(addDays(h.date, -1), 19),
       'Morgen: ${h.title}',
       h.doctor.isEmpty ? 'Arzttermin' : h.doctor,
     );

@@ -372,6 +372,10 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
+            // Sonst Dunkelgrün auf der dunkelgrünen Leiste.
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+            ),
             child: const Text('Speichern'),
           ),
         ],

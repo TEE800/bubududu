@@ -246,7 +246,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
             if (!isMe)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Private Einträge siehst nur die Person selbst.'),
+                child: Text('Private Einträge sieht nur die Person selbst.'),
               ),
             if (isMe)
               ListTile(

@@ -316,7 +316,7 @@ class _UpcomingCard extends ConsumerWidget {
     final next = occurrences(
       events,
       today(),
-      today().add(const Duration(days: 14)),
+      addDays(today(), 14),
     ).take(4).toList();
     return _DashCard(
       icon: Icons.calendar_month_outlined,
@@ -377,7 +377,7 @@ class _MealCard extends ConsumerWidget {
     final plan = ref.watch(mealPlanProvider(householdId)).value ?? const {};
     final recipes = ref.watch(recipesProvider(householdId)).value ?? const [];
     final todayMeal = plan[mealDocId(today())];
-    final tomorrowMeal = plan[mealDocId(today().add(const Duration(days: 1)))];
+    final tomorrowMeal = plan[mealDocId(addDays(today(), 1))];
     return _DashCard(
       icon: Icons.restaurant_outlined,
       title: 'Essen',
@@ -723,6 +723,7 @@ class _DashboardSettingsScreenState
               labelText: 'Ort suchen',
               hintText: 'z. B. Leipzig',
               suffixIcon: IconButton(
+                tooltip: 'Suchen',
                 icon: const Icon(Icons.search),
                 onPressed: _searchPlace,
               ),
@@ -761,6 +762,7 @@ class _DashboardSettingsScreenState
               labelText: 'Aktie suchen',
               hintText: 'z. B. Apple, SAP, MSCI World',
               suffixIcon: IconButton(
+                tooltip: 'Suchen',
                 icon: const Icon(Icons.search),
                 onPressed: _searchStock,
               ),

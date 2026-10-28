@@ -40,9 +40,8 @@ class CareItem {
   final String lastBy;
 
   /// Nie erledigt = heute fällig.
-  DateTime get nextDue => lastDone == null
-      ? today()
-      : dateOnly(lastDone!).add(Duration(days: intervalDays));
+  DateTime get nextDue =>
+      lastDone == null ? today() : addDays(lastDone!, intervalDays);
 
   bool isDue(DateTime now) => !nextDue.isAfter(dateOnly(now));
 

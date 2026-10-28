@@ -84,6 +84,7 @@ class HouseholdScreen extends ConsumerWidget {
             const SizedBox(height: 32),
             OutlinedButton.icon(
               onPressed: () async {
+                final navigator = Navigator.of(context);
                 final auth = ref.read(firebaseAuthProvider);
                 final uid = auth.currentUser?.uid;
                 if (uid != null) {
@@ -93,6 +94,8 @@ class HouseholdScreen extends ConsumerWidget {
                   );
                 }
                 await ref.read(notificationsProvider).replaceReminders([]);
+                // Sonst bliebe diese Seite über dem Login offen.
+                navigator.popUntil((route) => route.isFirst);
                 await auth.signOut();
               },
               icon: const Icon(Icons.logout),

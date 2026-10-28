@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/models.dart';
+import '../data/providers.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
@@ -46,6 +48,16 @@ class PantryItem {
     bestBefore: readDate(d.data['bestBefore']),
     place: d.data['place'] as String? ?? '',
   );
+}
+
+/// Namen der fehlenden Vorräte, die noch nicht offen auf der Einkaufsliste
+/// stehen ([onList]: kleingeschriebene Einträge), ohne Doppelte.
+List<String> missingForShopping(List<PantryItem> missing, Set<String> onList) {
+  final seen = {...onList};
+  return [
+    for (final i in missing)
+      if (seen.add(i.name.trim().toLowerCase())) i.name,
+  ];
 }
 
 final pantryProvider = Provider.family<AsyncValue<List<PantryItem>>, String>(
@@ -108,12 +120,25 @@ class PantryScreen extends ConsumerWidget {
                   ),
                   onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);
-                    for (final i in missing) {
-                      await store.addToShoppingList(i.name);
+                    final onList = {
+                      for (final s
+                          in ref
+                                  .read(shoppingItemsProvider(householdId))
+                                  .value ??
+                              const <ShoppingItem>[])
+                        if (!s.done) s.text.trim().toLowerCase(),
+                    };
+                    final toAdd = missingForShopping(missing, onList);
+                    for (final name in toAdd) {
+                      await store.addToShoppingList(name);
                     }
                     messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Steht auf der Einkaufsliste.'),
+                      SnackBar(
+                        content: Text(
+                          toAdd.isEmpty
+                              ? 'Steht schon alles auf der Einkaufsliste.'
+                              : 'Steht auf der Einkaufsliste.',
+                        ),
                       ),
                     );
                   },

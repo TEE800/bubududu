@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../data/offline.dart';
 import '../data/store.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
@@ -91,9 +92,10 @@ Future<void> setShareLocation(
 ) async {
   final uid = ref.read(uidProvider);
   final db = ref.read(firestoreProvider);
-  await db.doc('users/$uid').set({
-    'shareLocation': share,
-  }, SetOptions(merge: true));
+  // Nicht auf den Server warten, sonst hängt der Schalter ohne Netz.
+  await writeInBackground(
+    db.doc('users/$uid').set({'shareLocation': share}, SetOptions(merge: true)),
+  );
   if (!share) {
     await ref.read(storeProvider(householdId)).delete('locations', uid);
   }
