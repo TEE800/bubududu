@@ -71,7 +71,7 @@ class _HouseholdSetupScreenState extends ConsumerState<HouseholdSetupScreen> {
           Text('Neuen Haushalt anlegen', style: textTheme.titleLarge),
           const SizedBox(height: 8),
           const Text(
-            'Du bekommst danach einen Code, mit dem dein Schatz beitreten kann.',
+            'Du bekommst danach einen Code, mit dem Bubu beitreten kann.',
           ),
           const SizedBox(height: 12),
           TextField(

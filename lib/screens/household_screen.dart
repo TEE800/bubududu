@@ -34,7 +34,7 @@ class HouseholdScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               Card(
                 child: ListTile(
-                  title: const Text('Einladungscode für deinen Schatz'),
+                  title: const Text('Einladungscode für Bubu'),
                   subtitle: Text(
                     h.inviteCode,
                     style: Theme.of(context).textTheme.headlineMedium,
