@@ -1,7 +1,7 @@
 # Bubu & Dudu
 
 Die App für unseren gemeinsamen Alltag: Einkauf, Haushalt, Kalender, Finanzen und mehr.
-Gebaut mit Flutter (eine App für iPhone und Android) und Firebase (Login, Datenbank, Live-Sync).
+Gebaut mit Flutter (eine Codebasis für Android, Web und später iPhone) und Firebase (Login, Datenbank, Live-Sync).
 
 Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokument
 „Bubu-Dudu-App – Konzept“.
@@ -28,10 +28,11 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 6. Im Projektordner ausführen:
 
    ```sh
-   flutterfire configure --project=<deine-firebase-projekt-id> --platforms=android,ios
+   flutterfire configure --project=<deine-firebase-projekt-id> --platforms=android,web
    ```
 
-   Das ersetzt `lib/firebase_options.dart` und legt die Konfigurationsdateien für Android und iOS an.
+   Das ersetzt `lib/firebase_options.dart` und legt die Konfiguration für Android und Web an.
+   Wenn später die echte iPhone-App dazukommt, einfach mit `--platforms=android,web,ios` wiederholen.
 
 ## App starten
 
@@ -42,8 +43,18 @@ flutter run
 
 - **Android:** Handy per USB anschließen, Entwickleroptionen und USB-Debugging aktivieren, dann `flutter run`.
   Alternativ `flutter build apk` und die Datei `build/app/outputs/flutter-apk/app-release.apk` aufs Handy schicken.
-- **iPhone:** Braucht einen Mac mit Xcode. Zum Testen reicht eine kostenlose Apple-ID (App läuft dann 7 Tage),
-  für dauerhafte Installation über TestFlight ein Apple-Developer-Account.
+- **iPhone (Web-App):** Die App läuft im Safari und wird von dort auf den Homescreen gelegt.
+  Einmalig veröffentlichen (kostenlos über Firebase Hosting):
+
+  ```sh
+  flutter build web
+  firebase deploy --only hosting
+  ```
+
+  Danach die angezeigte Adresse (`https://<projekt-id>.web.app`) auf dem iPhone in Safari öffnen,
+  auf „Teilen“ tippen und „Zum Home-Bildschirm“ wählen. Nach jeder Änderung die zwei Befehle wiederholen.
+- **Echte iPhone-App (später):** Ohne Mac geht das über einen Cloud-Build wie Codemagic und TestFlight.
+  Dafür braucht es einen Apple-Developer-Account (ca. 99 USD pro Jahr).
 
 ## Entwicklung
 
