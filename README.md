@@ -41,8 +41,9 @@ flutter pub get
 flutter run
 ```
 
-- **Android:** Handy per USB anschließen, Entwickleroptionen und USB-Debugging aktivieren, dann `flutter run`.
-  Alternativ `flutter build apk` und die Datei `build/app/outputs/flutter-apk/app-release.apk` aufs Handy schicken.
+- **Android:** Auf dem Handy diesen Link öffnen und die Datei installieren (Installation aus dieser Quelle erlauben):
+  [bubududu.apk](https://github.com/TEE800/bubududu/releases/latest/download/bubududu.apk).
+  GitHub baut die neueste Version automatisch nach jeder Änderung auf `main`.
 - **iPhone (Web-App):** Die App läuft im Safari und wird von dort auf den Homescreen gelegt.
   Einmalig veröffentlichen (kostenlos über Firebase Hosting):
 
