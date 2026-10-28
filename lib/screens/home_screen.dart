@@ -4,6 +4,7 @@ import '../features/calendar.dart';
 import '../features/dashboard.dart';
 import '../features/location.dart';
 import '../features/tasks.dart';
+import '../notifications/sync.dart';
 import 'more_screen.dart';
 import 'shopping_screen.dart';
 
@@ -35,36 +36,39 @@ class _HomeScreenState extends State<HomeScreen> {
       MoreScreen(householdId: id),
     ];
 
-    return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          LocationSharer(householdId: id),
-          NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                label: 'Start',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.shopping_cart_outlined),
-                label: 'Einkauf',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.cleaning_services_outlined),
-                label: 'Haushalt',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.calendar_month_outlined),
-                label: 'Kalender',
-              ),
-              NavigationDestination(icon: Icon(Icons.apps), label: 'Mehr'),
-            ],
-          ),
-        ],
+    return NotificationSync(
+      householdId: id,
+      child: Scaffold(
+        body: IndexedStack(index: _index, children: pages),
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LocationSharer(householdId: id),
+            NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  label: 'Start',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.shopping_cart_outlined),
+                  label: 'Einkauf',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.cleaning_services_outlined),
+                  label: 'Haushalt',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.calendar_month_outlined),
+                  label: 'Kalender',
+                ),
+                NavigationDestination(icon: Icon(Icons.apps), label: 'Mehr'),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

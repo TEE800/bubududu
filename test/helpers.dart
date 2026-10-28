@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:bubududu/data/household_repository.dart';
 import 'package:bubududu/data/providers.dart';
 import 'package:bubududu/data/store.dart';
+import 'package:bubududu/notifications/local.dart';
 import 'package:bubududu/services/weather.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
@@ -79,6 +80,7 @@ Future<void> pumpPage(
               ),
         ),
         httpClientProvider.overrideWithValue(mockHttp),
+        notificationsProvider.overrideWithValue(NoNotifications()),
       ],
       child: MaterialApp(
         locale: const Locale('de'),

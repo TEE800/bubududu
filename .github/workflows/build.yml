@@ -28,6 +28,9 @@ jobs:
         working-directory: test_rules
       - run: npm test
         working-directory: test_rules
+      # Texte der Push-Nachrichten (functions/)
+      - run: npm ci && npm test
+        working-directory: functions
 
   build:
     needs: rules
@@ -76,12 +79,37 @@ jobs:
           files: bubududu.apk
           make_latest: true
 
-      # Veröffentlicht die Web-App, sobald das Secret FIREBASE_SERVICE_ACCOUNT angelegt ist (siehe README).
+      # Veröffentlicht die Web-App erst, wenn die Repo-Variable PUBLISH_WEB auf true steht
+      # (Settings → Secrets and variables → Actions → Variables) und das Secret existiert.
       - name: Web-App veröffentlichen
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != ''
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != '' && vars.PUBLISH_WEB == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: bubududu-15f3f
+
+  # Firestore-Regeln und Push-Funktion nach Firebase, sobald das Secret
+  # FIREBASE_SERVICE_ACCOUNT angelegt ist (siehe README). Push braucht den Blaze-Tarif.
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+      - uses: actions/setup-node@v4
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        with:
+          node-version: '22'
+      - name: Regeln und Funktionen veröffentlichen
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          (cd functions && npm ci)
+          npx --yes firebase-tools@14 deploy --only firestore:rules,functions \
+            --project bubududu-15f3f --non-interactive --force

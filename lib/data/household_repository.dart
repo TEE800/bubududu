@@ -35,6 +35,26 @@ class HouseholdRepository {
   Future<void> createProfile(String uid, String displayName) =>
       _user(uid).set({'displayName': displayName}, SetOptions(merge: true));
 
+  Future<void> setNotify(String uid, NotifyKind kind, bool on) =>
+      writeInBackground(
+        _user(uid).set({
+          'notify': {kind.name: on},
+        }, SetOptions(merge: true)),
+      );
+
+  /// Merkt sich das Gerät für Push-Nachrichten.
+  Future<void> addPushToken(String uid, String token) => writeInBackground(
+    _user(uid).set({
+      'fcmTokens': FieldValue.arrayUnion([token]),
+    }, SetOptions(merge: true)),
+  );
+
+  Future<void> removePushToken(String uid, String token) => writeInBackground(
+    _user(uid).set({
+      'fcmTokens': FieldValue.arrayRemove([token]),
+    }, SetOptions(merge: true)),
+  );
+
   Stream<Household> watchHousehold(String id) =>
       _household(id).snapshots().map(Household.fromDoc);
 

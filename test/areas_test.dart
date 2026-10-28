@@ -5,6 +5,7 @@ import 'package:bubududu/features/notes.dart';
 import 'package:bubududu/features/pantry.dart';
 import 'package:bubududu/features/trips.dart';
 import 'package:bubududu/screens/recipes_screen.dart';
+import 'package:bubududu/screens/settings_screen.dart';
 import 'package:bubududu/screens/shopping_screen.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -219,6 +220,19 @@ void main() {
       final monstera = (await docs('care')).single;
       expect(monstera['lastBy'], 'kevin');
       expect(monstera['lastDone'], isNotNull);
+    });
+  });
+
+  group('Einstellungen', () {
+    testWidgets('Partner-Benachrichtigungen abschalten', (tester) async {
+      await db.doc('users/kevin').set({'displayName': 'Dudu'});
+      await pumpPage(tester, const SettingsScreen(householdId: 'h1'));
+      expect(find.text('Wenn Bubu etwas einträgt'), findsOneWidget);
+      await tester.tap(find.text('Wenn Bubu etwas einträgt'));
+      await settle(tester);
+      final user = (await db.doc('users/kevin').get()).data()!;
+      expect(user['notify'], {'partner': false});
+      expect(user['displayName'], 'Dudu');
     });
   });
 }
