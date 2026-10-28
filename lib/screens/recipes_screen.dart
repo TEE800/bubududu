@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
+import '../services/recipe_scanner.dart';
+import '../util/recipe_parser.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
 
@@ -13,12 +17,97 @@ class RecipesScreen extends ConsumerWidget {
 
   final String householdId;
 
+  Future<void> _scan(BuildContext context) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Rezept scannen'),
+              subtitle: Text(
+                'Am besten gerade von oben und mit gutem Licht fotografieren.',
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Foto aufnehmen'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Bild aus der Galerie'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !context.mounted) return;
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 24),
+            Expanded(child: Text('Rezept wird gelesen …')),
+          ],
+        ),
+      ),
+    );
+    String? text;
+    Object? error;
+    try {
+      text = await scanRecipeText(source);
+    } catch (e) {
+      error = e;
+    }
+    navigator.pop();
+
+    if (error != null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Das Bild konnte nicht gelesen werden.')),
+      );
+      return;
+    }
+    if (text == null) return;
+    final draft = parseRecipeText(text);
+    if (draft.title.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Auf dem Bild wurde kein Text erkannt.')),
+      );
+      return;
+    }
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => RecipeEditScreen(householdId: householdId, draft: draft),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recipes = ref.watch(recipesProvider(householdId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Rezepte')),
+      appBar: AppBar(
+        title: const Text('Rezepte'),
+        actions: [
+          // Die Texterkennung gibt es nur in der installierten App.
+          if (!kIsWeb)
+            IconButton(
+              tooltip: 'Rezept scannen',
+              icon: const Icon(Icons.document_scanner_outlined),
+              onPressed: () => _scan(context),
+            ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('Neues Rezept'),
@@ -307,24 +396,36 @@ class _SendToShoppingSheetState extends ConsumerState<_SendToShoppingSheet> {
 }
 
 class RecipeEditScreen extends ConsumerStatefulWidget {
-  const RecipeEditScreen({super.key, required this.householdId, this.recipe});
+  const RecipeEditScreen({
+    super.key,
+    required this.householdId,
+    this.recipe,
+    this.draft,
+  });
 
   final String householdId;
 
   /// null = neues Rezept anlegen.
   final Recipe? recipe;
 
+  /// Vorschlag aus einem gescannten Foto, wird zum Prüfen vorausgefüllt.
+  final RecipeDraft? draft;
+
   @override
   ConsumerState<RecipeEditScreen> createState() => _RecipeEditScreenState();
 }
 
 class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
-  late final _title = TextEditingController(text: widget.recipe?.title);
+  late final _title = TextEditingController(
+    text: widget.recipe?.title ?? widget.draft?.title,
+  );
   late final _ingredients = TextEditingController(
-    text: widget.recipe?.ingredients.join('\n'),
+    text: (widget.recipe?.ingredients ?? widget.draft?.ingredients)?.join(
+      '\n',
+    ),
   );
   late final _instructions = TextEditingController(
-    text: widget.recipe?.instructions,
+    text: widget.recipe?.instructions ?? widget.draft?.instructions,
   );
   bool _saving = false;
 
@@ -383,6 +484,18 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (widget.draft != null) ...[
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.document_scanner_outlined),
+                title: Text('Aus dem Foto erkannt'),
+                subtitle: Text(
+                  'Bitte kurz prüfen und korrigieren, dann speichern.',
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           TextField(
             controller: _title,
             decoration: const InputDecoration(
