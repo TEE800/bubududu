@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
+import '../features/location.dart';
+import '../features/us.dart';
 
-/// Tab "Wir": Mitglieder, Einladungscode und Abmelden.
+/// "Wir": Beziehung, Bucket-Liste, Standort, Mitglieder, Einladungscode und Abmelden.
 class HouseholdScreen extends ConsumerWidget {
   const HouseholdScreen({super.key, required this.householdId});
 
@@ -23,8 +25,34 @@ class HouseholdScreen extends ConsumerWidget {
         data: (h) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text(h.name, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 16),
+            TogetherCard(householdId: householdId),
+            const SizedBox(height: 8),
+            for (final kind in IdeaKind.values)
+              ListTile(
+                leading: Icon(kind.icon),
+                title: Text(kind.label),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        IdeasScreen(householdId: householdId, kind: kind),
+                  ),
+                ),
+              ),
+            ListTile(
+              leading: const Icon(Icons.location_on_outlined),
+              title: const Text('Wo seid ihr?'),
+              subtitle: const Text('Standort teilen, freiwillig'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => LocationScreen(householdId: householdId),
+                ),
+              ),
+            ),
+            const Divider(height: 32),
+            Text(h.name, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
             for (final uid in h.members)
               ListTile(
                 leading: const Icon(Icons.person),
