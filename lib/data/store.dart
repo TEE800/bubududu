@@ -61,6 +61,8 @@ class HouseholdStore {
   final String householdId;
   final String uid;
 
+  FirebaseFirestore get firestore => _db;
+
   CollectionReference<Map<String, dynamic>> col(String name) =>
       _db.collection('households/$householdId/$name');
 

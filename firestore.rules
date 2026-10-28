@@ -15,6 +15,11 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
+
+      // Private Gesundheitseinträge: nur für die Person selbst.
+      match /health/{entryId} {
+        allow read, write: if signedIn() && request.auth.uid == uid;
+      }
     }
 
     // Einladungscodes: einzeln abrufbar, aber nicht auflistbar.

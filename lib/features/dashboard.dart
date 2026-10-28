@@ -13,6 +13,7 @@ import 'calendar.dart';
 import 'care.dart';
 import 'contracts.dart';
 import 'finance.dart';
+import 'health.dart';
 import 'location.dart';
 import 'meals.dart';
 import 'tasks.dart';
@@ -100,6 +101,7 @@ class DashboardScreen extends ConsumerWidget {
             _MealCard(householdId: householdId, onOpenPage: onOpenPage),
             _MoneyCard(householdId: householdId, onOpenPage: onOpenPage),
             _RemindersCard(householdId: householdId, onOpenPage: onOpenPage),
+            _HealthCard(householdId: householdId, onOpenPage: onOpenPage),
             _StocksCard(householdId: householdId),
             TogetherCard(householdId: householdId),
             _LocationCard(householdId: householdId, onOpenPage: onOpenPage),
@@ -401,6 +403,43 @@ class _MoneyCard extends ConsumerWidget {
           ?text,
           'Ausgaben im ${monthNames[now.month - 1]}: ${formatCents(month)}',
         ].join('\n'),
+      ),
+    );
+  }
+}
+
+/// Arzttermine der nächsten 30 Tage. Erscheint nur, wenn es welche gibt.
+class _HealthCard extends ConsumerWidget {
+  const _HealthCard({required this.householdId, required this.onOpenPage});
+
+  final String householdId;
+  final void Function(Widget page) onOpenPage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    final names = memberNames(ref, householdId);
+    final soon = upcomingAppointments(
+      ref.watch(healthEntriesProvider(householdId)).value ?? const [],
+      now,
+    ).where((e) => daysBetween(today(), e.date) <= 30).take(3).toList();
+    if (soon.isEmpty) return const SizedBox.shrink();
+    return _DashCard(
+      icon: Icons.health_and_safety_outlined,
+      title: 'Arzttermine',
+      onTap: () => onOpenPage(HealthScreen(householdId: householdId)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final e in soon)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                '• ${relativeDay(e.date)}: ${e.title}'
+                '${names[e.person] != null ? ' (${names[e.person]})' : ''}',
+              ),
+            ),
+        ],
       ),
     );
   }
