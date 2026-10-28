@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Nur die (höchstens zwei) Mitglieder eines Haushalts sehen dessen Daten.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(householdId) {
+      return signedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members;
+    }
+
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Einladungscodes: einzeln abrufbar, aber nicht auflistbar.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+    }
+
+    match /households/{householdId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+
+      allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
+
+      // Mitglieder dürfen den Namen ändern, aber nicht die Mitgliederliste.
+      allow update: if signedIn() && request.auth.uid in resource.data.members &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['members', 'inviteCode']);
+
+      // Beitreten: sich selbst als zweites Mitglied eintragen, sonst nichts.
+      allow update: if signedIn() &&
+        !(request.auth.uid in resource.data.members) &&
+        resource.data.members.size() == 1 &&
+        request.resource.data.members == resource.data.members.concat([request.auth.uid]) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberNames']);
+
+      match /{collection}/{docId} {
+        allow read, write: if isMember(householdId);
+      }
+    }
+  }
+}
