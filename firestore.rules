@@ -39,8 +39,14 @@ service cloud.firestore {
         request.resource.data.members == resource.data.members.concat([request.auth.uid]) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberNames']);
 
+      // Standort: beide dürfen lesen, aber jede Person nur ihren eigenen schreiben.
+      match /locations/{uid} {
+        allow read: if isMember(householdId);
+        allow write: if isMember(householdId) && request.auth.uid == uid;
+      }
+
       match /{collection}/{docId} {
-        allow read, write: if isMember(householdId);
+        allow read, write: if collection != 'locations' && isMember(householdId);
       }
     }
   }

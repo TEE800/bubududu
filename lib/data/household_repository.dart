@@ -140,10 +140,11 @@ class HouseholdRepository {
     await batch.commit();
   }
 
-  Stream<List<Recipe>> watchRecipes(String householdId) => _recipes(householdId)
-      .orderBy('title')
-      .snapshots()
-      .map((s) => s.docs.map(Recipe.fromDoc).toList());
+  Stream<List<Recipe>> watchRecipes(String householdId) =>
+      _recipes(householdId)
+          .orderBy('title')
+          .snapshots()
+          .map((s) => s.docs.map(Recipe.fromDoc).toList());
 
   /// Legt ein Rezept an ([recipeId] == null) oder überschreibt ein bestehendes.
   Future<void> saveRecipe(

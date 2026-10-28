@@ -100,9 +100,7 @@ class RecipeDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recipes = ref.watch(recipesProvider(householdId));
-    final recipe = recipes.value
-        ?.where((r) => r.id == recipeId)
-        .firstOrNull;
+    final recipe = recipes.value?.where((r) => r.id == recipeId).firstOrNull;
     final household = ref.watch(householdProvider(householdId)).value;
 
     if (recipe == null) {
@@ -164,7 +162,8 @@ class RecipeDetailScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           Text('Zutaten', style: textTheme.titleMedium),
           const SizedBox(height: 4),
-          if (recipe.ingredients.isEmpty) const Text('Keine Zutaten eingetragen.'),
+          if (recipe.ingredients.isEmpty)
+            const Text('Keine Zutaten eingetragen.'),
           for (final ingredient in recipe.ingredients)
             ListTile(
               dense: true,
@@ -284,7 +283,8 @@ class _SendToShoppingSheetState extends ConsumerState<_SendToShoppingSheet> {
                           : null,
                       controlAffinity: ListTileControlAffinity.leading,
                       onChanged: (v) => setState(
-                        () => v == true ? _selected.add(i) : _selected.remove(i),
+                        () =>
+                            v == true ? _selected.add(i) : _selected.remove(i),
                       ),
                     ),
                 ],
@@ -364,7 +364,9 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.recipe == null ? 'Neues Rezept' : 'Rezept bearbeiten'),
+        title: Text(
+          widget.recipe == null ? 'Neues Rezept' : 'Rezept bearbeiten',
+        ),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
@@ -388,7 +390,8 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
             controller: _ingredients,
             decoration: const InputDecoration(
               labelText: 'Zutaten',
-              hintText: 'Eine Zutat pro Zeile, z. B.\n500 g Hackfleisch\n1 Zwiebel',
+              hintText:
+                  'Eine Zutat pro Zeile, z. B.\n500 g Hackfleisch\n1 Zwiebel',
               alignLabelWithHint: true,
               border: OutlineInputBorder(),
             ),

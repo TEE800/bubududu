@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'coming_soon_screen.dart';
-import 'household_screen.dart';
-import 'recipes_screen.dart';
+import '../features/calendar.dart';
+import '../features/dashboard.dart';
+import '../features/location.dart';
+import '../features/tasks.dart';
+import 'more_screen.dart';
 import 'shopping_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,44 +21,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final id = widget.householdId;
     final pages = [
-      ShoppingScreen(householdId: widget.householdId),
-      RecipesScreen(householdId: widget.householdId),
-      const ComingSoonScreen(title: 'Haushalt', icon: Icons.cleaning_services),
-      const ComingSoonScreen(title: 'Kalender', icon: Icons.calendar_month),
-      const ComingSoonScreen(title: 'Finanzen', icon: Icons.euro),
-      HouseholdScreen(householdId: widget.householdId),
+      DashboardScreen(
+        householdId: id,
+        onOpenTab: (i) => setState(() => _index = i),
+        onOpenPage: (page) =>
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)),
+      ),
+      ShoppingScreen(householdId: id),
+      TasksScreen(householdId: id),
+      CalendarScreen(householdId: id),
+      MoreScreen(householdId: id),
     ];
 
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart_outlined),
-            label: 'Einkauf',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            label: 'Rezepte',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.cleaning_services_outlined),
-            label: 'Haushalt',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            label: 'Kalender',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.euro_outlined),
-            label: 'Finanzen',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_outline),
-            label: 'Wir',
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LocationSharer(householdId: id),
+          NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                label: 'Start',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.shopping_cart_outlined),
+                label: 'Einkauf',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.cleaning_services_outlined),
+                label: 'Haushalt',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.calendar_month_outlined),
+                label: 'Kalender',
+              ),
+              NavigationDestination(icon: Icon(Icons.apps), label: 'Mehr'),
+            ],
           ),
         ],
       ),
