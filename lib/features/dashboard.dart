@@ -9,6 +9,7 @@ import '../services/weather.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 import 'calendar.dart';
 import 'care.dart';
 import 'contracts.dart';
@@ -91,9 +92,16 @@ class DashboardScreen extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-              child: Text(
-                '${weekdayLong(now)}, ${now.day}. ${monthNames[now.month - 1]} ${now.year}',
-                style: Theme.of(context).textTheme.titleMedium,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${weekdayLong(now)}, ${now.day}. ${monthNames[now.month - 1]} ${now.year}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  Mascots(mood: moodForTime(now), height: 64),
+                ],
               ),
             ),
             _WeatherCard(householdId: householdId),

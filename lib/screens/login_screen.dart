@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
+import '../widgets/mascots.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -80,6 +81,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const Center(
+                  child: Mascots(mood: MascotMood.love, height: 140),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   'Bubu & Dudu',
                   textAlign: TextAlign.center,

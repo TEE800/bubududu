@@ -4,13 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models.dart';
 import '../data/providers.dart';
 import '../util/dates.dart';
+import 'mascots.dart';
 
-/// Hinweis für leere Listen.
+/// Hinweis für leere Listen. Mit [mood] zeigen sich Bubu und Dudu statt des Symbols.
 class EmptyHint extends StatelessWidget {
-  const EmptyHint({super.key, required this.icon, required this.text});
+  const EmptyHint({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.mood,
+  });
 
   final IconData icon;
   final String text;
+  final MascotMood? mood;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +27,14 @@ class EmptyHint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: Theme.of(context).colorScheme.primary),
+            if (mood != null)
+              Mascots(mood: mood!, height: 110)
+            else
+              Icon(
+                icon,
+                size: 56,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             const SizedBox(height: 12),
             Text(text, textAlign: TextAlign.center),
           ],

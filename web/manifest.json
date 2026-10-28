@@ -3,11 +3,12 @@
     "short_name": "Bubu & Dudu",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FFFFFF",
+    "background_color": "#1B5E20",
     "theme_color": "#1B5E20",
     "description": "Euer gemeinsamer Alltag in einer App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "lang": "de",
     "icons": [
         {
             "src": "icons/Icon-192.png",
@@ -31,6 +32,5 @@
             "type": "image/png",
             "purpose": "maskable"
         }
-    ],
-    "lang": "de"
+    ]
 }

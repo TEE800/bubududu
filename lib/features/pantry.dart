@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 enum StockLevel {
   full('Genug da'),
@@ -85,6 +86,7 @@ class PantryScreen extends ConsumerWidget {
         if (list.isEmpty) {
           return const EmptyHint(
             icon: Icons.kitchen_outlined,
+            mood: MascotMood.hungry,
             text:
                 'Tragt ein, was ihr zu Hause habt. Was knapp wird, kommt mit '
                 'einem Tipp auf die Einkaufsliste.',
