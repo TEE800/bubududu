@@ -45,11 +45,12 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
       appBar: AppBar(
         title: const Text('Einkaufsliste'),
         actions: [
-          IconButton(
-            tooltip: 'Erledigte entfernen',
-            icon: const Icon(Icons.delete_sweep_outlined),
-            onPressed: () => repo.clearDoneItems(widget.householdId),
-          ),
+          if (items.value?.any((i) => i.done) ?? false)
+            TextButton.icon(
+              onPressed: () => repo.clearDoneItems(widget.householdId),
+              icon: const Icon(Icons.delete_sweep_outlined),
+              label: const Text('Erledigte löschen'),
+            ),
         ],
       ),
       body: Column(
@@ -118,6 +119,14 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                                 'von ${household.memberNames[item.addedBy] ?? '?'}',
                               ),
                         controlAffinity: ListTileControlAffinity.leading,
+                        secondary: IconButton(
+                          tooltip: 'Löschen',
+                          icon: const Icon(Icons.close),
+                          onPressed: () => repo.deleteShoppingItem(
+                            widget.householdId,
+                            item.id,
+                          ),
+                        ),
                       ),
                     );
                   },

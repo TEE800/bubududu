@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
-    "theme_color": "#E57373",
+    "theme_color": "#1B5E20",
     "description": "Euer gemeinsamer Alltag in einer App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
