@@ -83,6 +83,17 @@ flutter analyze   # Code prüfen
 flutter test      # Tests ausführen
 ```
 
+Die Tests decken jeden Bereich ab: Logik (`test/logic_test.dart`), Anmelden und Haushalt
+(`test/auth_test.dart`), Anlegen/Ändern/Löschen pro Bereich (`test/areas_test.dart`),
+alle Seiten (`test/screens_test.dart`) und Offline (`test/offline_test.dart`).
+Gemeinsame Testdaten liegen in `test/helpers.dart`.
+
+Die Firestore-Regeln werden im Emulator geprüft (braucht Node und Java):
+
+```sh
+cd test_rules && npm install && npm test
+```
+
 Datenstruktur in Firestore:
 
 | Pfad | Inhalt |

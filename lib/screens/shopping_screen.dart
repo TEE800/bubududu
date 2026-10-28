@@ -1,8 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
+import '../data/store.dart';
 
 class ShoppingScreen extends ConsumerStatefulWidget {
   const ShoppingScreen({super.key, required this.householdId});
@@ -27,11 +27,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
     if (text.isEmpty) return;
     ref
         .read(householdRepositoryProvider)
-        .addShoppingItem(
-          widget.householdId,
-          text,
-          FirebaseAuth.instance.currentUser!.uid,
-        );
+        .addShoppingItem(widget.householdId, text, ref.read(uidProvider));
     _input.clear();
   }
 

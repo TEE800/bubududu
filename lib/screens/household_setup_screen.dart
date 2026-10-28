@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -29,7 +28,7 @@ class _HouseholdSetupScreenState extends ConsumerState<HouseholdSetupScreen> {
   Future<void> _run(
     Future<void> Function(String uid, String displayName) action,
   ) async {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = ref.read(firebaseAuthProvider).currentUser!;
     final displayName =
         ref.read(userProfileProvider).value?.displayName ??
         user.displayName ??
@@ -61,7 +60,7 @@ class _HouseholdSetupScreenState extends ConsumerState<HouseholdSetupScreen> {
           IconButton(
             tooltip: 'Abmelden',
             icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+            onPressed: () => ref.read(firebaseAuthProvider).signOut(),
           ),
         ],
       ),
