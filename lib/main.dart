@@ -22,18 +22,29 @@ class BubuDuduApp extends StatelessWidget {
     return MaterialApp(
       title: 'Bubu & Dudu',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFE57373)),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFE57373),
-          brightness: Brightness.dark,
-        ),
-      ),
+      theme: _theme(Brightness.light),
+      darkTheme: _theme(Brightness.dark),
       home: const AuthGate(),
     );
   }
+}
+
+// Unsere Lieblingsfarbe: Dunkelgrün.
+const _darkGreen = Color(0xFF1B5E20);
+
+ThemeData _theme(Brightness brightness) {
+  final scheme = ColorScheme.fromSeed(
+    seedColor: _darkGreen,
+    brightness: brightness,
+    dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+  );
+  return ThemeData(
+    colorScheme: scheme,
+    appBarTheme: AppBarTheme(
+      backgroundColor: brightness == Brightness.light ? _darkGreen : null,
+      foregroundColor: brightness == Brightness.light ? Colors.white : null,
+    ),
+  );
 }
 
 /// Entscheidet, welcher Bildschirm gezeigt wird:
