@@ -5,6 +5,7 @@ import '../data/offline.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 import 'health_rules.dart';
 
 /// Gesundheit:
@@ -322,7 +323,11 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
             if (history.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Noch keine Impfungen oder Vorsorge eingetragen.'),
+                child: EmptyHint(
+                  icon: Icons.vaccines_outlined,
+                  text: 'Noch keine Impfungen oder Vorsorge eingetragen.',
+                  mood: MascotMood.care,
+                ),
               ),
             for (final e in history) _entryTile(context, e, isMe),
           ],

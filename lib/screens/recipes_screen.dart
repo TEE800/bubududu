@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
+import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 /// Tab "Rezepte": gemeinsame Rezeptsammlung des Haushalts.
 class RecipesScreen extends ConsumerWidget {
@@ -31,8 +33,10 @@ class RecipesScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('Fehler: $e')),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
-              child: Text('Noch keine Rezepte. Legt euer erstes an!'),
+            return const EmptyHint(
+              icon: Icons.menu_book_outlined,
+              text: 'Noch keine Rezepte. Legt euer erstes an!',
+              mood: MascotMood.hungry,
             );
           }
           return ListView.builder(

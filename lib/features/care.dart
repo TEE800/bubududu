@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 enum CareKind {
   plant('Pflanze', Icons.local_florist_outlined),
@@ -89,6 +90,7 @@ class CareScreen extends ConsumerWidget {
         if (list.isEmpty) {
           return const EmptyHint(
             icon: Icons.local_florist_outlined,
+            mood: MascotMood.care,
             text: 'Z. B. „Monstera gießen alle 7 Tage“ oder „Katze entwurmen alle 90 Tage“.',
           );
         }

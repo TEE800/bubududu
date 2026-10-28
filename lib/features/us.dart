@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 /// "Zusammen seit" steht im Haushalts-Dokument (togetherSince).
 /// households/{id}/ideas: Bucket-Liste und Date-Ideen.
@@ -202,7 +203,11 @@ class _IdeasScreenState extends ConsumerState<IdeasScreen> {
             child: asyncBody(ideas, (all) {
               final list = all.where((i) => i.kind == widget.kind).toList();
               if (list.isEmpty) {
-                return EmptyHint(icon: widget.kind.icon, text: 'Noch leer.');
+                return EmptyHint(
+                  icon: widget.kind.icon,
+                  text: 'Noch leer.',
+                  mood: MascotMood.love,
+                );
               }
               return ListView(
                 children: [

@@ -6,6 +6,7 @@ import '../data/store.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 import 'contracts.dart';
 
 const expenseCategories = [
@@ -306,7 +307,11 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
             if (inMonth.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('In diesem Monat noch nichts eingetragen.'),
+                child: EmptyHint(
+                  icon: Icons.euro,
+                  text: 'In diesem Monat noch nichts eingetragen.',
+                  mood: MascotMood.money,
+                ),
               ),
             for (final e in inMonth)
               ListTile(

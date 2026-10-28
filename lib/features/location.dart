@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../data/store.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 /// Standort teilen ist freiwillig und für jede Person getrennt:
 /// users/{uid}.shareLocation schaltet es ein oder aus (Standard: aus),
@@ -249,6 +250,7 @@ class LocationScreen extends ConsumerWidget {
               if (list.isEmpty) {
                 return const EmptyHint(
                   icon: Icons.location_off_outlined,
+                  mood: MascotMood.love,
                   text: 'Gerade teilt niemand seinen Standort.',
                 );
               }

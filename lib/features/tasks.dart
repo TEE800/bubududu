@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 /// households/{id}/tasks: Haushaltsaufgaben.
 /// households/{id}/taskLog: wer wann was erledigt hat (für die Punkte).
@@ -187,6 +188,7 @@ class TasksScreen extends ConsumerWidget {
             if (list.isEmpty)
               const EmptyHint(
                 icon: Icons.cleaning_services_outlined,
+                mood: MascotMood.cleaning,
                 text: 'Noch keine Aufgaben. Legt z. B. „Bad putzen“ wöchentlich an.',
               ),
             ..._sections(list, now).entries.expand(

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
 import '../data/store.dart';
+import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 class ShoppingScreen extends ConsumerStatefulWidget {
   const ShoppingScreen({super.key, required this.householdId});
@@ -72,7 +74,11 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
               error: (e, _) => Center(child: Text('Fehler: $e')),
               data: (list) {
                 if (list.isEmpty) {
-                  return const Center(child: Text('Die Liste ist leer.'));
+                  return const EmptyHint(
+                    icon: Icons.shopping_cart_outlined,
+                    text: 'Die Liste ist leer.',
+                    mood: MascotMood.shopping,
+                  );
                 }
                 // Offene Einträge oben, erledigte unten.
                 final sorted = [
