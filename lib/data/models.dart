@@ -1,15 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserProfile {
-  const UserProfile({required this.displayName, this.householdId});
+  const UserProfile({
+    required this.displayName,
+    this.householdId,
+    this.notify = const {},
+  });
 
   final String displayName;
   final String? householdId;
 
+  /// Benachrichtigungs-Einstellungen, siehe [NotifyKind].
+  final Map<String, bool> notify;
+
+  bool wants(NotifyKind kind) => notify[kind.name] ?? true;
+
   factory UserProfile.fromMap(Map<String, dynamic> data) => UserProfile(
     displayName: data['displayName'] as String? ?? '',
     householdId: data['householdId'] as String?,
+    notify: Map<String, bool>.from(data['notify'] as Map? ?? const {}),
   );
+}
+
+/// Arten von Benachrichtigungen, die man einzeln abschalten kann.
+/// Die Namen stehen so auch in Firestore (users/{uid}.notify) und in functions/.
+enum NotifyKind {
+  /// Termine, Aufgaben, Fristen, Pflege – plant das Handy selbst.
+  reminders,
+
+  /// Wenn der Partner etwas einträgt – kommt als Push vom Server.
+  partner,
 }
 
 class Household {

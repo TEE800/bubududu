@@ -10,6 +10,7 @@ import '../features/pantry.dart';
 import '../features/trips.dart';
 import 'household_screen.dart';
 import 'recipes_screen.dart';
+import 'settings_screen.dart';
 
 typedef MoreEntry = ({
   String label,
@@ -67,6 +68,11 @@ final moreEntries = <MoreEntry>[
     label: 'Wir',
     icon: Icons.favorite_outline,
     page: (id) => HouseholdScreen(householdId: id),
+  ),
+  (
+    label: 'Einstellungen',
+    icon: Icons.settings_outlined,
+    page: (id) => SettingsScreen(householdId: id),
   ),
 ];
 

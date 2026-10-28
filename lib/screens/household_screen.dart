@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/providers.dart';
+import '../notifications/local.dart';
+import '../notifications/push.dart';
 import '../features/location.dart';
 import '../features/us.dart';
 
@@ -81,7 +83,18 @@ class HouseholdScreen extends ConsumerWidget {
             ],
             const SizedBox(height: 32),
             OutlinedButton.icon(
-              onPressed: () => ref.read(firebaseAuthProvider).signOut(),
+              onPressed: () async {
+                final auth = ref.read(firebaseAuthProvider);
+                final uid = auth.currentUser?.uid;
+                if (uid != null) {
+                  await Push.unregister(
+                    uid: uid,
+                    repo: ref.read(householdRepositoryProvider),
+                  );
+                }
+                await ref.read(notificationsProvider).replaceReminders([]);
+                await auth.signOut();
+              },
               icon: const Icon(Icons.logout),
               label: const Text('Abmelden'),
             ),

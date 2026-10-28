@@ -63,6 +63,25 @@ die App automatisch ab. Noch nicht abgeglichene Einträge der Einkaufsliste sind
    Das ersetzt `lib/firebase_options.dart` und legt die Konfiguration für Android und Web an.
    Wenn später die echte iPhone-App dazukommt, einfach mit `--platforms=android,web,ios` wiederholen.
 
+## Benachrichtigungen
+
+- **Erinnerungen** (Termine, Aufgaben, Kündigungsfristen, Gießen, Arzttermine) plant das Handy
+  selbst, auch ohne Netz. Funktioniert sofort, nichts einzurichten.
+- **Neues vom Partner** („Bubu hat Milch auf die Einkaufsliste gesetzt“) kommt als Push vom Server
+  (`functions/`). Das braucht einmalig:
+  1. Firebase-Konsole → unten links **Upgrade** → Tarif **Blaze**. Für zwei Personen bleibt das im
+     kostenlosen Kontingent; am besten gleich ein Budget-Limit von 1 € als Warnung setzen.
+  2. [Google Cloud → Dienstkonten](https://console.cloud.google.com/iam-admin/serviceaccounts?project=bubududu-15f3f)
+     → **Dienstkonto erstellen**, Name `github-deploy`, Rolle **Bearbeiter** (Editor) → Fertig.
+     Dann das Konto anklicken → **Schlüssel** → **Schlüssel hinzufügen** → JSON. Die Datei wird heruntergeladen.
+  3. GitHub → Repo → **Settings → Secrets and variables → Actions → New repository secret**,
+     Name `FIREBASE_SERVICE_ACCOUNT`, Inhalt der JSON-Datei einfügen. Datei danach löschen.
+
+  Ab dann veröffentlicht GitHub nach jeder Änderung die Push-Funktion und die Firestore-Regeln
+  automatisch. Die Web-App wird nur veröffentlicht, wenn zusätzlich die Variable `PUBLISH_WEB=true` gesetzt ist.
+
+Jede Person kann beides unter **Mehr → Einstellungen** abschalten.
+
 ## App starten
 
 ```sh
@@ -108,7 +127,7 @@ Datenstruktur in Firestore:
 
 | Pfad | Inhalt |
 | --- | --- |
-| `users/{uid}` | Name, `householdId` |
+| `users/{uid}` | Name, `householdId`, `notify` (Einstellungen), `fcmTokens` (Geräte für Push) |
 | `invites/{code}` | verweist auf den Haushalt |
 | `households/{id}` | Name, Mitglieder, Einladungscode |
 | `households/{id}/shoppingItems/{id}` | Einträge der Einkaufsliste |
