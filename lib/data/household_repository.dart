@@ -90,7 +90,11 @@ class HouseholdRepository {
     required String displayName,
     required String code,
   }) async {
-    final invite = await _db.doc('invites/${code.trim().toUpperCase()}').get();
+    final clean = code.replaceAll(RegExp(r'\s'), '').toUpperCase();
+    if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(clean)) {
+      throw StateError('Der Code hat 6 Zeichen, z. B. K7M2QX.');
+    }
+    final invite = await _db.doc('invites/$clean').get();
     final householdId = invite.data()?['householdId'] as String?;
     if (householdId == null) {
       throw StateError('Diesen Einladungscode gibt es nicht.');
@@ -119,15 +123,19 @@ class HouseholdRepository {
 
   // Einkauf und Rezepte warten nicht auf den Server, damit sie offline
   // funktionieren (siehe offline.dart). Haushalt anlegen/beitreten braucht Netz.
-  Future<void> addShoppingItem(String householdId, String text, String uid) =>
-      writeInBackground(
-        _items(householdId).doc().set({
-          'text': text,
-          'done': false,
-          'addedBy': uid,
-          'createdAt': FieldValue.serverTimestamp(),
-        }),
-      );
+  Future<void> addShoppingItem(
+    String householdId,
+    String text,
+    String uid, {
+    bool done = false,
+  }) => writeInBackground(
+    _items(householdId).doc().set({
+      'text': text,
+      'done': done,
+      'addedBy': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    }),
+  );
 
   /// Legt mehrere Einträge auf einmal an, z. B. die Zutaten eines Rezepts.
   Future<void> addShoppingItems(
@@ -157,20 +165,24 @@ class HouseholdRepository {
   Future<void> deleteShoppingItem(String householdId, String itemId) =>
       writeInBackground(_items(householdId).doc(itemId).delete());
 
-  Future<void> clearDoneItems(String householdId) async {
-    final done = await _items(householdId).where('done', isEqualTo: true).get();
+  /// Löscht die angezeigten erledigten Einträge. Bekommt die IDs von der
+  /// Liste, statt neu abzufragen, damit es auch ohne Netz sofort klappt.
+  Future<void> clearDoneItems(String householdId, List<String> itemIds) {
     final batch = _db.batch();
-    for (final doc in done.docs) {
-      batch.delete(doc.reference);
+    for (final id in itemIds) {
+      batch.delete(_items(householdId).doc(id));
     }
-    await writeInBackground(batch.commit());
+    return writeInBackground(batch.commit());
   }
 
-  Stream<List<Recipe>> watchRecipes(String householdId) =>
-      _recipes(householdId)
-          .orderBy('title')
-          .snapshots()
-          .map((s) => s.docs.map(Recipe.fromDoc).toList());
+  Stream<List<Recipe>> watchRecipes(String householdId) => _recipes(householdId)
+      .snapshots()
+      .map(
+        (s) => s.docs.map(Recipe.fromDoc).toList()
+          ..sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+          ),
+      );
 
   /// Legt ein Rezept an ([recipeId] == null) oder überschreibt ein bestehendes.
   Future<void> saveRecipe(

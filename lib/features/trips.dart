@@ -68,17 +68,32 @@ final tripsProvider = Provider.family<AsyncValue<List<Trip>>, String>(
       .watch(
         collectionProvider((householdId: householdId, collection: 'trips')),
       )
-      .whenData(
-        (docs) => docs.map(Trip.fromDoc).toList()
-          ..sort((a, b) {
-            final ad = a.start, bd = b.start;
-            if (ad == null && bd == null) return a.name.compareTo(b.name);
-            if (ad == null) return 1;
-            if (bd == null) return -1;
-            return ad.compareTo(bd);
-          }),
-      ),
+      .whenData((docs) => sortTrips(docs.map(Trip.fromDoc).toList())),
 );
+
+/// Vorbei, wenn das Ende (oder ohne Ende der Anfang) vor [today] liegt.
+bool tripIsPast(Trip t, DateTime today) =>
+    (t.end ?? t.start)?.isBefore(dateOnly(today)) ?? false;
+
+/// Kommende und laufende Reisen nach Datum, dann ohne Datum,
+/// vergangene ganz unten (die letzte zuerst).
+List<Trip> sortTrips(List<Trip> list, {DateTime? now}) {
+  final t = dateOnly(now ?? DateTime.now());
+  int group(Trip trip) => tripIsPast(trip, t)
+      ? 2
+      : trip.start == null
+      ? 1
+      : 0;
+  return list..sort((a, b) {
+    final g = group(a).compareTo(group(b));
+    if (g != 0) return g;
+    return switch (group(a)) {
+      0 => a.start!.compareTo(b.start!),
+      2 => (b.end ?? b.start)!.compareTo((a.end ?? a.start)!),
+      _ => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    };
+  });
+}
 
 String tripDates(Trip t) {
   if (t.start == null) return 'Noch kein Datum';
@@ -126,8 +141,9 @@ class TripsScreen extends ConsumerWidget {
                   subtitle: Text(
                     [
                       tripDates(trip),
+                      if (tripIsPast(trip, t)) 'vorbei',
                       if (trip.start != null && trip.start!.isAfter(t))
-                        'in ${daysBetween(t, trip.start!)} Tagen',
+                        dueText(trip.start!),
                       if (trip.packing.isNotEmpty)
                         '${trip.packing.where((p) => p.done).length}/${trip.packing.length} gepackt',
                     ].join(' · '),
@@ -233,6 +249,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
               decoration: InputDecoration(
                 hintText: 'Was muss mit?',
                 suffixIcon: IconButton(
+                  tooltip: 'Hinzufügen',
                   icon: const Icon(Icons.add),
                   onPressed: add,
                 ),

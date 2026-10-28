@@ -81,18 +81,21 @@ Map<String, int> pointsThisMonth(List<Doc> log, DateTime now) {
   return result;
 }
 
-/// Hakt eine Aufgabe ab. Wiederkehrende Aufgaben rücken auf den nächsten Termin.
-Future<void> completeTask(HouseholdStore store, HouseTask task) async {
+/// Hakt eine Aufgabe ab. Wiederkehrende Aufgaben rücken auf den nächsten
+/// Termin, der dann zurückgegeben wird.
+Future<DateTime?> completeTask(HouseholdStore store, HouseTask task) async {
   final now = DateTime.now();
+  DateTime? next;
   if (task.repeat == Repeat.none) {
     await store.update('tasks', task.id, {'done': true});
   } else {
     // Vom alten Fälligkeitsdatum weiterrechnen, bis der Termin in der Zukunft liegt.
-    var next = nextOccurrence(task.due ?? today(), task.repeat);
-    while (!next.isAfter(today())) {
-      next = nextOccurrence(next, task.repeat);
+    var due = nextOccurrence(task.due ?? today(), task.repeat);
+    while (!due.isAfter(today())) {
+      due = nextOccurrence(due, task.repeat);
     }
-    await store.update('tasks', task.id, {'due': writeDate(next)});
+    next = due;
+    await store.update('tasks', task.id, {'due': writeDate(due)});
   }
   await store.add('taskLog', {
     'taskId': task.id,
@@ -101,6 +104,27 @@ Future<void> completeTask(HouseholdStore store, HouseTask task) async {
     'points': task.points,
     'at': Timestamp.fromDate(now),
   });
+  return next;
+}
+
+/// Nimmt das Abhaken zurück, samt der Punkte dafür.
+Future<void> uncompleteTask(
+  HouseholdStore store,
+  HouseTask task,
+  List<Doc> log,
+) async {
+  await store.update('tasks', task.id, {'done': false});
+  Doc? last;
+  DateTime? lastAt;
+  for (final entry in log) {
+    if (entry.data['taskId'] != task.id) continue;
+    final at = readDate(entry.data['at']);
+    if (at != null && (lastAt == null || at.isAfter(lastAt))) {
+      last = entry;
+      lastAt = at;
+    }
+  }
+  if (last != null) await store.delete('taskLog', last.id);
 }
 
 class TasksScreen extends ConsumerWidget {
@@ -198,9 +222,26 @@ class TasksScreen extends ConsumerWidget {
                   _TaskTile(
                     task: t,
                     names: names,
-                    onToggle: () => t.done
-                        ? store.update('tasks', t.id, {'done': false})
-                        : completeTask(store, t),
+                    onToggle: () async {
+                      if (t.done) {
+                        return uncompleteTask(store, t, log ?? const []);
+                      }
+                      final messenger = ScaffoldMessenger.of(context);
+                      final next = await completeTask(store, t);
+                      // Wiederkehrende Aufgaben bleiben offen, rücken aber weiter.
+                      if (next != null) {
+                        messenger
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '„${t.title}“ erledigt. '
+                                'Nächstes Mal: ${relativeDay(next)}',
+                              ),
+                            ),
+                          );
+                      }
+                    },
                     onTap: () => _openEdit(context, t),
                   ),
               ],

@@ -124,12 +124,15 @@ class TogetherCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$days Tage zusammen', style: textTheme.titleLarge),
+                    Text(
+                      '${daysText(days)} zusammen',
+                      style: textTheme.titleLarge,
+                    ),
                     Text('seit ${formatShortDate(since)}'),
                     Text(
                       until == 0
                           ? 'Heute ist euer $years. Jahrestag!'
-                          : 'Noch $until Tage bis zum $years. Jahrestag',
+                          : 'Noch ${daysText(until)} bis zum $years. Jahrestag',
                     ),
                   ],
                 ),
@@ -191,6 +194,7 @@ class _IdeasScreenState extends ConsumerState<IdeasScreen> {
                   IdeaKind.goal => 'z. B. Zusammen 1.000 € sparen',
                 },
                 suffixIcon: IconButton(
+                  tooltip: 'Hinzufügen',
                   icon: const Icon(Icons.add),
                   onPressed: _add,
                 ),
@@ -205,7 +209,11 @@ class _IdeasScreenState extends ConsumerState<IdeasScreen> {
               if (list.isEmpty) {
                 return EmptyHint(
                   icon: widget.kind.icon,
-                  text: 'Noch leer.',
+                  text: switch (widget.kind) {
+                    IdeaKind.date => 'Noch keine Date-Ideen. Sammelt hier, was ihr mal zusammen machen wollt.',
+                    IdeaKind.bucket => 'Eure Bucket-Liste ist noch leer. Was wollt ihr unbedingt einmal erleben?',
+                    IdeaKind.goal => 'Noch keine gemeinsamen Ziele. Was wollt ihr zusammen schaffen?',
+                  },
                   mood: MascotMood.love,
                 );
               }

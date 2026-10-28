@@ -68,7 +68,7 @@ List<Occurrence> occurrences(
       var day = nextAnniversary(e.date, now: start);
       while (!day.isAfter(end)) {
         if (!day.isBefore(dateOnly(e.date))) result.add((day: day, event: e));
-        day = nextAnniversary(e.date, now: day.add(const Duration(days: 1)));
+        day = nextAnniversary(e.date, now: addDays(day, 1));
       }
     } else {
       final day = dateOnly(e.date);
@@ -147,7 +147,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         final daysWithEvents = {for (final o in inMonth) o.day};
         final shown = _selected != null
             ? inMonth.where((o) => o.day == _selected).toList()
-            : occurrences(list, today(), today().add(const Duration(days: 60)));
+            : occurrences(list, today(), addDays(today(), 60));
 
         return ListView(
           padding: const EdgeInsets.only(bottom: 88),
@@ -186,9 +186,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   : relativeDay(_selected!),
             ),
             if (shown.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('Keine Termine.'),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  _selected == null
+                      ? 'In den nächsten 60 Tagen steht nichts an. '
+                            'Tippe auf „Termin“, um etwas einzutragen.'
+                      : 'An diesem Tag steht nichts an.',
+                ),
               ),
             for (final o in shown)
               ListTile(
@@ -287,41 +292,56 @@ class MonthGrid extends StatelessWidget {
                         );
                         final isSelected = day == selected;
                         final isToday = day == t;
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(22),
-                          onTap: () => onTap(day),
-                          child: Container(
-                            height: 44,
-                            margin: const EdgeInsets.all(1),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isSelected ? scheme.primary : null,
-                              border: isToday && !isSelected
-                                  ? Border.all(color: scheme.primary, width: 2)
-                                  : null,
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '$dayNumber',
-                                  style: TextStyle(
-                                    color: isSelected ? scheme.onPrimary : null,
+                        // Für Screenreader: "Mittwoch, 28. Oktober, Termine".
+                        return Semantics(
+                          button: true,
+                          selected: isSelected,
+                          label:
+                              '${weekdayLong(day)}, $dayNumber. ${monthNames[day.month - 1]}'
+                              '${isToday ? ', heute' : ''}'
+                              '${marked.contains(day) ? ', Termine' : ''}',
+                          excludeSemantics: true,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(22),
+                            onTap: () => onTap(day),
+                            child: Container(
+                              height: 44,
+                              margin: const EdgeInsets.all(1),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isSelected ? scheme.primary : null,
+                                border: isToday && !isSelected
+                                    ? Border.all(
+                                        color: scheme.primary,
+                                        width: 2,
+                                      )
+                                    : null,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '$dayNumber',
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? scheme.onPrimary
+                                          : null,
+                                    ),
                                   ),
-                                ),
-                                Container(
-                                  width: 5,
-                                  height: 5,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: marked.contains(day)
-                                        ? (isSelected
-                                              ? scheme.onPrimary
-                                              : scheme.primary)
-                                        : Colors.transparent,
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: marked.contains(day)
+                                          ? (isSelected
+                                                ? scheme.onPrimary
+                                                : scheme.primary)
+                                          : Colors.transparent,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -369,11 +389,13 @@ class _EventEditScreenState extends ConsumerState<EventEditScreen> {
 
   Future<void> _pickTime() async {
     final parts = _time?.split(':');
+    final hour = int.tryParse(parts?.first ?? '');
+    final minute = int.tryParse(parts?.last ?? '');
     final picked = await showTimePicker(
       context: context,
-      initialTime: parts == null
+      initialTime: hour == null || minute == null
           ? const TimeOfDay(hour: 18, minute: 0)
-          : TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
+          : TimeOfDay(hour: hour, minute: minute),
     );
     if (picked != null) {
       setState(() {

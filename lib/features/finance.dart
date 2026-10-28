@@ -147,7 +147,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Ausgleichen?'),
         content: Text(
-          'Trage ein, dass ${names[debtor]} ${formatCents(owed.abs())} '
+          'Trage ein, dass ${names[debtor] ?? '?'} ${formatCents(owed.abs())} '
           'überwiesen oder bar gegeben hat.',
         ),
         actions: [

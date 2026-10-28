@@ -94,9 +94,7 @@ ExportItem exportItem(CalendarEvent e) {
     key: e.id,
     title: e.title,
     start: start,
-    end: allDay
-        ? start.add(const Duration(days: 1))
-        : start.add(const Duration(hours: 1)),
+    end: allDay ? addDays(start, 1) : start.add(const Duration(hours: 1)),
     allDay: allDay,
     yearly: e.yearly,
     description: [
@@ -226,11 +224,7 @@ Future<List<PhoneEvent>> importCandidates({
   final start = dateOnly(now ?? DateTime.now());
   final ours = {for (final e in (await store.exported()).values) e.deviceId};
   final taken = {for (final e in events) ?e.googleId};
-  final list = await phone.list(
-    calendarId,
-    start,
-    start.add(const Duration(days: 90)),
-  );
+  final list = await phone.list(calendarId, start, addDays(start, 90));
   final seen = <String>{};
   return [
     for (final e in list)

@@ -18,6 +18,9 @@ int? parseCents(String input) {
   if (s.isEmpty) return null;
   if (s.contains(',')) {
     s = s.replaceAll('.', '').replaceAll(',', '.');
+  } else if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(s)) {
+    // "1.234" ist auf Deutsch ein Tausenderpunkt, kein Komma.
+    s = s.replaceAll('.', '');
   }
   final value = double.tryParse(s);
   if (value == null || value < 0) return null;

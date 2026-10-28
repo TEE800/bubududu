@@ -29,6 +29,12 @@ DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
 DateTime today() => dateOnly(DateTime.now());
 
+/// [d] plus [days] Kalendertage, um Mitternacht. Nicht `d.add(Duration(days: …))`:
+/// Bei der Zeitumstellung hat ein Tag 23 oder 25 Stunden, dann landet man
+/// sonst auf dem falschen Tag.
+DateTime addDays(DateTime d, int days) =>
+    DateTime(d.year, d.month, d.day + days);
+
 int daysBetween(DateTime from, DateTime to) =>
     dateOnly(to).difference(dateOnly(from)).inDays;
 
@@ -55,6 +61,9 @@ String relativeDay(DateTime d, {DateTime? now}) {
     _ => formatDate(d, now: now),
   };
 }
+
+/// "1 Tag", "3 Tage".
+String daysText(int n) => n == 1 ? '1 Tag' : '$n Tage';
 
 /// "in 3 Tagen", "seit 2 Tagen überfällig" usw.
 String dueText(DateTime due, {DateTime? now}) {

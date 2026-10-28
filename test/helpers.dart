@@ -61,6 +61,7 @@ Future<void> pumpPage(
   WidgetTester tester,
   Widget page, {
   MockFirebaseAuth? auth,
+  ThemeData? theme,
 }) async {
   // Typische Handygröße, damit Überläufe auffallen.
   tester.view.physicalSize = const Size(360 * 3, 740 * 3);
@@ -83,6 +84,7 @@ Future<void> pumpPage(
         notificationsProvider.overrideWithValue(NoNotifications()),
       ],
       child: MaterialApp(
+        theme: theme,
         locale: const Locale('de'),
         supportedLocales: const [Locale('de')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,

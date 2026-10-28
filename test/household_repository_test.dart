@@ -46,6 +46,36 @@ void main() {
     );
   });
 
+  test('Code mit falschem Format wird gar nicht erst gesucht', () async {
+    for (final code in ['', 'AB', 'ABC/DE', 'ABCDEFG']) {
+      expect(
+        () => repo.joinHousehold(uid: 'x', displayName: 'X', code: code),
+        throwsA(
+          isA<StateError>().having((e) => e.message, 'message', contains('6')),
+        ),
+      );
+    }
+  });
+
+  test('Rezepte alphabetisch, egal ob groß oder klein', () async {
+    for (final t in ['zucchini-Pfanne', 'Apfelkuchen', 'banane']) {
+      await repo.saveRecipe(
+        'h1',
+        title: t,
+        ingredients: const [],
+        instructions: '',
+        uid: 'kevin',
+      );
+    }
+    await pumpEventQueue();
+    final recipes = await repo.watchRecipes('h1').first;
+    expect(recipes.map((r) => r.title), [
+      'Apfelkuchen',
+      'banane',
+      'zucchini-Pfanne',
+    ]);
+  });
+
   test('Einkaufsliste: hinzufügen, abhaken, Erledigte entfernen', () async {
     await repo.addShoppingItem('h1', 'Milch', 'kevin');
     await repo.addShoppingItem('h1', 'Brot', 'kevin');
@@ -54,7 +84,8 @@ void main() {
     expect(items.map((i) => i.text), ['Milch', 'Brot']);
 
     await repo.setShoppingItemDone('h1', items.first.id, true);
-    await repo.clearDoneItems('h1');
+    await repo.clearDoneItems('h1', [items.first.id]);
+    await pumpEventQueue();
 
     items = await repo.watchShoppingItems('h1').first;
     expect(items.map((i) => i.text), ['Brot']);
