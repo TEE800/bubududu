@@ -5,6 +5,7 @@ import '../data/store.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 enum BillingInterval {
   monthly('monatlich', 1),
@@ -108,6 +109,7 @@ class ContractsScreen extends ConsumerWidget {
         if (list.isEmpty) {
           return const EmptyHint(
             icon: Icons.description_outlined,
+            mood: MascotMood.money,
             text:
                 'Tragt hier Miete, Strom, Handy, Versicherungen und Abos ein. '
                 'Die App erinnert euch an Kündigungsfristen.',

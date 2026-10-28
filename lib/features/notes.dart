@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/store.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 const noteCategories = [
   'Allgemein',
@@ -100,6 +101,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
             if (shown.isEmpty)
               const EmptyHint(
                 icon: Icons.sticky_note_2_outlined,
+                mood: MascotMood.thinking,
                 text:
                     'Hier ist Platz für WLAN-Passwort, Handwerker-Nummern, '
                     'Kleidergrößen und Geschenkideen.',

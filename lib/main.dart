@@ -10,6 +10,7 @@ import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/household_setup_screen.dart';
 import 'screens/login_screen.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,32 +29,14 @@ class BubuDuduApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: scaffoldMessengerKey,
       builder: (context, child) => OfflineBanner(child: child!),
-      theme: _theme(Brightness.light),
-      darkTheme: _theme(Brightness.dark),
+      theme: appTheme(Brightness.light),
+      darkTheme: appTheme(Brightness.dark),
       locale: const Locale('de'),
       supportedLocales: const [Locale('de')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: const AuthGate(),
     );
   }
-}
-
-// Unsere Lieblingsfarbe: Dunkelgrün.
-const _darkGreen = Color(0xFF1B5E20);
-
-ThemeData _theme(Brightness brightness) {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: _darkGreen,
-    brightness: brightness,
-    dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-  );
-  return ThemeData(
-    colorScheme: scheme,
-    appBarTheme: AppBarTheme(
-      backgroundColor: brightness == Brightness.light ? _darkGreen : null,
-      foregroundColor: brightness == Brightness.light ? Colors.white : null,
-    ),
-  );
 }
 
 /// Entscheidet, welcher Bildschirm gezeigt wird:

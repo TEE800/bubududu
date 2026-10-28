@@ -28,6 +28,16 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 Standort teilen ist freiwillig: Jede Person schaltet es für sich ein, solange es läuft,
 zeigt die App einen Hinweis-Balken. Geteilt wird nur, während die App geöffnet ist.
 
+**Bubu & Dudu als Figuren:** Dudu (brauner Bär) und Bubu (weißer Panda mit grünem Halstuch)
+sind selbst gezeichnet (`lib/widgets/mascots.dart`) und tauchen überall in der App auf, je nach
+Bereich in anderer Stimmung: hungrig bei Rezepten, mit Tüte beim Einkauf, verschlafen morgens
+auf der Startseite. Das App-Logo wird aus derselben Zeichnung erzeugt:
+
+```sh
+OUT=assets/logo flutter test tool/render_mascots_test.dart
+dart run flutter_launcher_icons
+```
+
 **Offline:** Die App funktioniert auch ohne Netz, z. B. im Supermarkt-Keller. Alles wird auf dem
 Handy zwischengespeichert, oben erscheint „Offline“, und sobald wieder Netz da ist, gleicht
 die App automatisch ab. Noch nicht abgeglichene Einträge der Einkaufsliste sind markiert.

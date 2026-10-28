@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/mascots.dart';
 
 const defaultPackingList = [
   'Ausweis',
@@ -108,6 +109,7 @@ class TripsScreen extends ConsumerWidget {
         if (list.isEmpty) {
           return const EmptyHint(
             icon: Icons.luggage_outlined,
+            mood: MascotMood.travel,
             text: 'Plant hier Urlaube und Ausflüge, inklusive gemeinsamer Packliste.',
           );
         }
