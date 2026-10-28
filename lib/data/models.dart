@@ -47,12 +47,16 @@ class ShoppingItem {
     required this.text,
     required this.done,
     required this.addedBy,
+    this.pending = false,
   });
 
   final String id;
   final String text;
   final bool done;
   final String addedBy;
+
+  /// Offline geändert und noch nicht beim Server angekommen.
+  final bool pending;
 
   factory ShoppingItem.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
@@ -61,6 +65,7 @@ class ShoppingItem {
       text: data['text'] as String? ?? '',
       done: data['done'] as bool? ?? false,
       addedBy: data['addedBy'] as String? ?? '',
+      pending: doc.metadata.hasPendingWrites,
     );
   }
 }

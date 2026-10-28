@@ -28,6 +28,10 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 Standort teilen ist freiwillig: Jede Person schaltet es für sich ein, solange es läuft,
 zeigt die App einen Hinweis-Balken. Geteilt wird nur, während die App geöffnet ist.
 
+**Offline:** Die App funktioniert auch ohne Netz, z. B. im Supermarkt-Keller. Alles wird auf dem
+Handy zwischengespeichert, oben erscheint „Offline“, und sobald wieder Netz da ist, gleicht
+die App automatisch ab. Noch nicht abgeglichene Einträge der Einkaufsliste sind markiert.
+
 ## Firebase einrichten (einmalig)
 
 1. Auf [console.firebase.google.com](https://console.firebase.google.com) ein Projekt anlegen, z. B. `bubududu`.

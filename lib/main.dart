@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'data/offline.dart';
 import 'data/providers.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
@@ -12,6 +14,7 @@ import 'screens/login_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  enableOfflineCache(FirebaseFirestore.instance);
   runApp(const ProviderScope(child: BubuDuduApp()));
 }
 
@@ -23,6 +26,8 @@ class BubuDuduApp extends StatelessWidget {
     return MaterialApp(
       title: 'Bubu & Dudu',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      builder: (context, child) => OfflineBanner(child: child!),
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
       locale: const Locale('de'),

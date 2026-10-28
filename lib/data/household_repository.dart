@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'models.dart';
+import 'offline.dart';
 
 /// Alle Lese- und Schreibzugriffe auf Firestore für Haushalt und Einkauf.
 ///
@@ -93,23 +94,27 @@ class HouseholdRepository {
   Stream<List<ShoppingItem>> watchShoppingItems(String householdId) =>
       _items(householdId)
           .orderBy('createdAt')
-          .snapshots()
+          .snapshots(includeMetadataChanges: true)
           .map((s) => s.docs.map(ShoppingItem.fromDoc).toList());
 
+  // Einkauf und Rezepte warten nicht auf den Server, damit sie offline
+  // funktionieren (siehe offline.dart). Haushalt anlegen/beitreten braucht Netz.
   Future<void> addShoppingItem(String householdId, String text, String uid) =>
-      _items(householdId).add({
-        'text': text,
-        'done': false,
-        'addedBy': uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      writeInBackground(
+        _items(householdId).doc().set({
+          'text': text,
+          'done': false,
+          'addedBy': uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        }),
+      );
 
   /// Legt mehrere Einträge auf einmal an, z. B. die Zutaten eines Rezepts.
   Future<void> addShoppingItems(
     String householdId,
     List<String> texts,
     String uid,
-  ) async {
+  ) {
     final batch = _db.batch();
     for (final text in texts) {
       batch.set(_items(householdId).doc(), {
@@ -119,17 +124,18 @@ class HouseholdRepository {
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
-    await batch.commit();
+    return writeInBackground(batch.commit());
   }
 
   Future<void> setShoppingItemDone(
     String householdId,
     String itemId,
     bool done,
-  ) => _items(householdId).doc(itemId).update({'done': done});
+  ) =>
+      writeInBackground(_items(householdId).doc(itemId).update({'done': done}));
 
   Future<void> deleteShoppingItem(String householdId, String itemId) =>
-      _items(householdId).doc(itemId).delete();
+      writeInBackground(_items(householdId).doc(itemId).delete());
 
   Future<void> clearDoneItems(String householdId) async {
     final done = await _items(householdId).where('done', isEqualTo: true).get();
@@ -137,7 +143,7 @@ class HouseholdRepository {
     for (final doc in done.docs) {
       batch.delete(doc.reference);
     }
-    await batch.commit();
+    await writeInBackground(batch.commit());
   }
 
   Stream<List<Recipe>> watchRecipes(String householdId) =>
@@ -161,17 +167,19 @@ class HouseholdRepository {
       'instructions': instructions,
     };
     if (recipeId == null) {
-      return _recipes(householdId).add({
-        ...data,
-        'addedBy': uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      return writeInBackground(
+        _recipes(householdId).doc().set({
+          ...data,
+          'addedBy': uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        }),
+      );
     }
-    return _recipes(householdId).doc(recipeId).update(data);
+    return writeInBackground(_recipes(householdId).doc(recipeId).update(data));
   }
 
   Future<void> deleteRecipe(String householdId, String recipeId) =>
-      _recipes(householdId).doc(recipeId).delete();
+      writeInBackground(_recipes(householdId).doc(recipeId).delete());
 
   // Ohne 0/O und 1/I, damit der Code leicht abzutippen ist.
   static String _randomCode() {
