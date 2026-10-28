@@ -21,6 +21,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 | Vorräte | Bestand und Mindesthaltbarkeit, fehlende Vorräte auf die Einkaufsliste |
 | Verträge | Kosten, Zahlungsrhythmus, Kündigungsfristen mit Hinweis |
 | Reisen | Reisen mit gemeinsamer Packliste |
+| Gesundheit | Arzttermine, Impfungen und Vorsorge pro Person, Empfehlungen nach Alter, private Einträge |
 | Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus |
 | Wir | Zusammen seit, Date-Ideen, Bucket-Liste, Ziele, Standort teilen, Einladungscode |
 
@@ -92,3 +93,5 @@ Datenstruktur in Firestore:
 | `households/{id}/expenses`, `contracts` | Ausgaben, Verträge |
 | `households/{id}/notes`, `pantry`, `trips`, `care`, `ideas` | weitere Bereiche |
 | `households/{id}/locations/{uid}` | geteilter Standort (nur von der Person selbst schreibbar) |
+| `households/{id}/health`, `healthProfiles` im Haushalt | gemeinsame Gesundheitseinträge, Geburtsdatum |
+| `users/{uid}/health` | private Gesundheitseinträge (nur die Person selbst) |

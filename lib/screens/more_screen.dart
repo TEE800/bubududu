@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/care.dart';
 import '../features/contracts.dart';
 import '../features/finance.dart';
+import '../features/health.dart';
 import '../features/meals.dart';
 import '../features/notes.dart';
 import '../features/pantry.dart';
@@ -31,6 +32,11 @@ final moreEntries = <MoreEntry>[
     label: 'Rezepte',
     icon: Icons.menu_book_outlined,
     page: (id) => RecipesScreen(householdId: id),
+  ),
+  (
+    label: 'Gesundheit',
+    icon: Icons.health_and_safety_outlined,
+    page: (id) => HealthScreen(householdId: id),
   ),
   (
     label: 'Notizen',
