@@ -82,6 +82,15 @@ die App automatisch ab. Noch nicht abgeglichene Einträge der Einkaufsliste sind
 
 Jede Person kann beides unter **Mehr → Einstellungen** abschalten.
 
+## Google-Kalender
+
+Unter **Mehr → Einstellungen → Kalender** „Termine in meinen Google-Kalender“ einschalten und den
+Google-Kalender auswählen. Ab dann landen alle gemeinsamen und eigenen Termine automatisch dort
+(über den Kalender des Handys, der sich selbst mit Google abgleicht, kein extra Login nötig).
+Ändert oder löscht man einen Termin in der App, passiert das auch im Google-Kalender.
+Umgekehrt holt man Termine aus Google gezielt über den Knopf oben im Kalender-Reiter.
+Jede Person schaltet das auf ihrem eigenen Handy ein (nur Android-App).
+
 ## App starten
 
 ```sh

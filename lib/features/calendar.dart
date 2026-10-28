@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/store.dart';
+import '../gcal/calendar_sync.dart';
+import '../gcal/calendar_sync_widgets.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
 
@@ -15,6 +17,8 @@ class CalendarEvent {
     required this.who,
     required this.yearly,
     required this.note,
+    this.createdBy = '',
+    this.googleId,
   });
 
   final String id;
@@ -30,6 +34,10 @@ class CalendarEvent {
   /// Jedes Jahr wiederholen (Geburtstage, Jahrestage).
   final bool yearly;
   final String note;
+  final String createdBy;
+
+  /// Aus dem Google-Kalender von [createdBy] übernommen (Termin-ID dort).
+  final String? googleId;
 
   factory CalendarEvent.fromDoc(Doc d) => CalendarEvent(
     id: d.id,
@@ -39,6 +47,8 @@ class CalendarEvent {
     who: d.data['who'] as String? ?? '',
     yearly: d.data['yearly'] as bool? ?? false,
     note: d.data['note'] as String? ?? '',
+    createdBy: d.data['createdBy'] as String? ?? '',
+    googleId: d.data['googleId'] as String?,
   );
 }
 
@@ -110,6 +120,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       appBar: AppBar(
         title: const Text('Kalender'),
         actions: [
+          if (ref.watch(syncCalendarProvider).value != null)
+            IconButton(
+              tooltip: 'Aus Google-Kalender holen',
+              icon: const Icon(Icons.download_outlined),
+              onPressed: () => showImportSheet(context, widget.householdId),
+            ),
           IconButton(
             tooltip: 'Heute',
             icon: const Icon(Icons.today),
