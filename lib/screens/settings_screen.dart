@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
+import '../gcal/calendar_sync_widgets.dart';
 import '../notifications/local.dart';
 import '../widgets/common.dart';
 
@@ -53,6 +54,9 @@ class SettingsScreen extends ConsumerWidget {
             'Wenn $partner etwas einträgt',
             'Z. B. „$partner hat Milch auf die Einkaufsliste gesetzt“.',
           ),
+          const SectionHeader('Kalender'),
+          CalendarSyncSettings(householdId: householdId),
+          const SectionHeader('Testen'),
           ListTile(
             leading: const Icon(Icons.notifications_active_outlined),
             title: const Text('Test-Benachrichtigung'),

@@ -5,6 +5,9 @@
     <!-- Benachrichtigungen: Erlaubnis ab Android 13, Erinnerungen nach Neustart wieder einplanen -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Termine in den Google-Kalender auf dem Handy übertragen -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <application
         android:label="Bubu &amp; Dudu"
         android:name="${applicationName}"
