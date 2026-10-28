@@ -7,6 +7,7 @@ import 'package:bubududu/features/trips.dart';
 import 'package:bubududu/screens/recipes_screen.dart';
 import 'package:bubududu/screens/settings_screen.dart';
 import 'package:bubududu/screens/shopping_screen.dart';
+import 'package:bubududu/util/recipe_parser.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,6 +78,27 @@ void main() {
       final soup = (await docs('recipes'))
           .firstWhere((r) => r['title'] == 'Kartoffelsuppe');
       expect(soup['ingredients'], ['Kartoffeln', 'Lauch', 'Brühe']);
+    });
+
+    testWidgets('Gescanntes Rezept prüfen und speichern', (tester) async {
+      await pumpPage(
+        tester,
+        const RecipeEditScreen(
+          householdId: 'h1',
+          draft: RecipeDraft(
+            title: 'Pfannkuchen vom Foto',
+            ingredients: ['250 g Mehl', '3 Eier'],
+            instructions: 'Verrühren.',
+          ),
+        ),
+      );
+      expect(find.text('Aus dem Foto erkannt'), findsOneWidget);
+      await fill(tester, 'Name', 'Omas Pfannkuchen');
+      await save(tester);
+      final saved = (await docs('recipes'))
+          .firstWhere((r) => r['title'] == 'Omas Pfannkuchen');
+      expect(saved['ingredients'], ['250 g Mehl', '3 Eier']);
+      expect(saved['instructions'], 'Verrühren.');
     });
 
     testWidgets('Zutaten auf die Einkaufsliste', (tester) async {

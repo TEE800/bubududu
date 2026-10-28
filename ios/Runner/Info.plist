@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Zum Abfotografieren von Rezepten.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Zum Einlesen von Rezepten aus euren Fotos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Damit ihr euch gegenseitig auf der Karte seht, wenn du das Teilen einschaltest.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
