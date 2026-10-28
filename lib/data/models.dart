@@ -64,3 +64,30 @@ class ShoppingItem {
     );
   }
 }
+
+class Recipe {
+  const Recipe({
+    required this.id,
+    required this.title,
+    required this.ingredients,
+    required this.instructions,
+    required this.addedBy,
+  });
+
+  final String id;
+  final String title;
+  final List<String> ingredients;
+  final String instructions;
+  final String addedBy;
+
+  factory Recipe.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? {};
+    return Recipe(
+      id: doc.id,
+      title: data['title'] as String? ?? '',
+      ingredients: List<String>.from(data['ingredients'] as List? ?? const []),
+      instructions: data['instructions'] as String? ?? '',
+      addedBy: data['addedBy'] as String? ?? '',
+    );
+  }
+}

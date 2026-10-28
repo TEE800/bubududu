@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'coming_soon_screen.dart';
 import 'household_screen.dart';
+import 'recipes_screen.dart';
 import 'shopping_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final pages = [
       ShoppingScreen(householdId: widget.householdId),
+      RecipesScreen(householdId: widget.householdId),
       const ComingSoonScreen(title: 'Haushalt', icon: Icons.cleaning_services),
       const ComingSoonScreen(title: 'Kalender', icon: Icons.calendar_month),
       const ComingSoonScreen(title: 'Finanzen', icon: Icons.euro),
@@ -35,6 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.shopping_cart_outlined),
             label: 'Einkauf',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            label: 'Rezepte',
           ),
           NavigationDestination(
             icon: Icon(Icons.cleaning_services_outlined),
