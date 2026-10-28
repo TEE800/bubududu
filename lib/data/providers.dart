@@ -27,3 +27,8 @@ final shoppingItemsProvider = StreamProvider.family<List<ShoppingItem>, String>(
   (ref, householdId) =>
       ref.watch(householdRepositoryProvider).watchShoppingItems(householdId),
 );
+
+final recipesProvider = StreamProvider.family<List<Recipe>, String>(
+  (ref, householdId) =>
+      ref.watch(householdRepositoryProvider).watchRecipes(householdId),
+);
