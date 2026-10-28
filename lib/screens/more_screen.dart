@@ -8,6 +8,7 @@ import '../features/notes.dart';
 import '../features/pantry.dart';
 import '../features/trips.dart';
 import 'household_screen.dart';
+import 'recipes_screen.dart';
 
 typedef MoreEntry = ({
   String label,
@@ -25,6 +26,11 @@ final moreEntries = <MoreEntry>[
     label: 'Essensplan',
     icon: Icons.restaurant_outlined,
     page: (id) => MealPlanScreen(householdId: id),
+  ),
+  (
+    label: 'Rezepte',
+    icon: Icons.menu_book_outlined,
+    page: (id) => RecipesScreen(householdId: id),
   ),
   (
     label: 'Notizen',

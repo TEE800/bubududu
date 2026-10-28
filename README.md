@@ -6,12 +6,26 @@ Gebaut mit Flutter (eine Codebasis für Android, Web und später iPhone) und Fir
 Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokument
 „Bubu-Dudu-App – Konzept“.
 
-## Was schon geht
+## Was die App kann
 
-- Konto anlegen und anmelden (E-Mail und Passwort)
-- Gemeinsamen Haushalt anlegen, Partner tritt mit 6-stelligem Einladungscode bei
-- Einkaufsliste: hinzufügen, abhaken, wischen zum Löschen, Erledigte entfernen, live auf beiden Handys
-- Platzhalter-Tabs für Haushalt, Kalender und Finanzen
+| Bereich | Funktionen |
+| --- | --- |
+| Start | Wetter für euren Ort, Aktien/ETFs, fällige Aufgaben, nächste Termine, Einkaufsliste, Essen heute, Finanzen, Erinnerungen, Jahrestag |
+| Einkauf | Gemeinsame Liste, live auf beiden Handys |
+| Haushalt | Aufgaben mit Zuständigkeit, Fälligkeit, Wiederholung und Punkten pro Monat |
+| Kalender | Monatsansicht, Termine mit Uhrzeit, Geburtstage und Jahrestage jährlich |
+| Finanzen | Ausgaben, Wer-schuldet-wem, Ausgleichen, Kategorien pro Monat, Fixkosten |
+| Rezepte | Rezeptsammlung, Zutaten auf die Einkaufsliste |
+| Essensplan | Wochenplan, Rezepte mit einem Tipp übernehmen |
+| Notizen | Pinnwand mit Kategorien (WLAN, Kontakte, Geschenkideen …) |
+| Vorräte | Bestand und Mindesthaltbarkeit, fehlende Vorräte auf die Einkaufsliste |
+| Verträge | Kosten, Zahlungsrhythmus, Kündigungsfristen mit Hinweis |
+| Reisen | Reisen mit gemeinsamer Packliste |
+| Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus |
+| Wir | Zusammen seit, Date-Ideen, Bucket-Liste, Ziele, Standort teilen, Einladungscode |
+
+Standort teilen ist freiwillig: Jede Person schaltet es für sich ein, solange es läuft,
+zeigt die App einen Hinweis-Balken. Geteilt wird nur, während die App geöffnet ist.
 
 ## Firebase einrichten (einmalig)
 
@@ -72,3 +86,9 @@ Datenstruktur in Firestore:
 | `invites/{code}` | verweist auf den Haushalt |
 | `households/{id}` | Name, Mitglieder, Einladungscode |
 | `households/{id}/shoppingItems/{id}` | Einträge der Einkaufsliste |
+| `households/{id}/recipes`, `mealPlan/{yyyy-mm-dd}` | Rezepte, Essensplan |
+| `households/{id}/tasks`, `taskLog` | Aufgaben und wer was erledigt hat |
+| `households/{id}/events` | Termine |
+| `households/{id}/expenses`, `contracts` | Ausgaben, Verträge |
+| `households/{id}/notes`, `pantry`, `trips`, `care`, `ideas` | weitere Bereiche |
+| `households/{id}/locations/{uid}` | geteilter Standort (nur von der Person selbst schreibbar) |

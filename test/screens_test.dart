@@ -18,6 +18,7 @@ import 'package:bubududu/features/us.dart';
 import 'package:bubududu/screens/home_screen.dart';
 import 'package:bubududu/screens/household_screen.dart';
 import 'package:bubududu/screens/more_screen.dart';
+import 'package:bubududu/screens/recipes_screen.dart';
 import 'package:bubududu/services/weather.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -161,6 +162,11 @@ void main() {
       'done': false,
     });
     await store.addToShoppingList('Milch');
+    await store.add('recipes', {
+      'title': 'Pfannkuchen',
+      'ingredients': ['Mehl', 'Milch'],
+      'instructions': '',
+    });
   });
 
   testWidgets('Startseite zeigt Wetter, Aufgaben, Termine, Geld und Aktien', (
@@ -221,6 +227,7 @@ void main() {
       'Meinen Standort teilen',
     ),
     'Mehr': (const MoreScreen(householdId: 'h1'), 'Tiere & Pflanzen'),
+    'Rezepte': (const RecipesScreen(householdId: 'h1'), 'Pfannkuchen'),
     'Einrichten': (
       const DashboardSettingsScreen(householdId: 'h1'),
       'Leipzig, Sachsen',

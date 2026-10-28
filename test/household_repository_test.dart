@@ -59,4 +59,41 @@ void main() {
     items = await repo.watchShoppingItems('h1').first;
     expect(items.map((i) => i.text), ['Brot']);
   });
+
+  test('Rezept anlegen, ändern und Zutaten auf die Einkaufsliste', () async {
+    await repo.saveRecipe(
+      'h1',
+      title: 'Pfannkuchen',
+      ingredients: ['Mehl', 'Milch', 'Eier'],
+      instructions: 'Alles verrühren.',
+      uid: 'kevin',
+    );
+
+    var recipes = await repo.watchRecipes('h1').first;
+    expect(recipes.single.title, 'Pfannkuchen');
+    expect(recipes.single.ingredients, ['Mehl', 'Milch', 'Eier']);
+
+    await repo.saveRecipe(
+      'h1',
+      recipeId: recipes.single.id,
+      title: 'Pfannkuchen',
+      ingredients: ['Mehl', 'Milch', 'Eier', 'Zucker'],
+      instructions: 'Alles verrühren.',
+      uid: 'partner',
+    );
+    recipes = await repo.watchRecipes('h1').first;
+    expect(recipes.single.ingredients, hasLength(4));
+    expect(recipes.single.addedBy, 'kevin');
+
+    await repo.addShoppingItems('h1', recipes.single.ingredients, 'partner');
+    final items = await repo.watchShoppingItems('h1').first;
+    expect(
+      items.map((i) => i.text),
+      unorderedEquals(['Mehl', 'Milch', 'Eier', 'Zucker']),
+    );
+    expect(items.every((i) => !i.done && i.addedBy == 'partner'), isTrue);
+
+    await repo.deleteRecipe('h1', recipes.single.id);
+    expect(await repo.watchRecipes('h1').first, isEmpty);
+  });
 }

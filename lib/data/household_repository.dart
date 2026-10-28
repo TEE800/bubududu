@@ -11,6 +11,7 @@ import 'models.dart';
 ///   invites/{code}                      verweist auf einen Haushalt
 ///   households/{id}                     Name, Mitglieder, Einladungscode
 ///   households/{id}/shoppingItems/{id}  Einträge der Einkaufsliste
+///   households/{id}/recipes/{id}        gemeinsame Rezepte
 class HouseholdRepository {
   HouseholdRepository(this._db);
 
@@ -22,6 +23,8 @@ class HouseholdRepository {
       _db.doc('households/$id');
   CollectionReference<Map<String, dynamic>> _items(String householdId) =>
       _household(householdId).collection('shoppingItems');
+  CollectionReference<Map<String, dynamic>> _recipes(String householdId) =>
+      _household(householdId).collection('recipes');
 
   Stream<UserProfile?> watchProfile(String uid) =>
       _user(uid)
@@ -101,6 +104,24 @@ class HouseholdRepository {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+  /// Legt mehrere Einträge auf einmal an, z. B. die Zutaten eines Rezepts.
+  Future<void> addShoppingItems(
+    String householdId,
+    List<String> texts,
+    String uid,
+  ) async {
+    final batch = _db.batch();
+    for (final text in texts) {
+      batch.set(_items(householdId).doc(), {
+        'text': text,
+        'done': false,
+        'addedBy': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
   Future<void> setShoppingItemDone(
     String householdId,
     String itemId,
@@ -118,6 +139,39 @@ class HouseholdRepository {
     }
     await batch.commit();
   }
+
+  Stream<List<Recipe>> watchRecipes(String householdId) =>
+      _recipes(householdId)
+          .orderBy('title')
+          .snapshots()
+          .map((s) => s.docs.map(Recipe.fromDoc).toList());
+
+  /// Legt ein Rezept an ([recipeId] == null) oder überschreibt ein bestehendes.
+  Future<void> saveRecipe(
+    String householdId, {
+    String? recipeId,
+    required String title,
+    required List<String> ingredients,
+    required String instructions,
+    required String uid,
+  }) {
+    final data = {
+      'title': title,
+      'ingredients': ingredients,
+      'instructions': instructions,
+    };
+    if (recipeId == null) {
+      return _recipes(householdId).add({
+        ...data,
+        'addedBy': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    return _recipes(householdId).doc(recipeId).update(data);
+  }
+
+  Future<void> deleteRecipe(String householdId, String recipeId) =>
+      _recipes(householdId).doc(recipeId).delete();
 
   // Ohne 0/O und 1/I, damit der Code leicht abzutippen ist.
   static String _randomCode() {

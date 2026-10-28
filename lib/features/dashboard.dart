@@ -354,6 +354,7 @@ class _MealCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plan = ref.watch(mealPlanProvider(householdId)).value ?? const {};
+    final recipes = ref.watch(recipesProvider(householdId)).value ?? const [];
     final todayMeal = plan[mealDocId(today())];
     final tomorrowMeal = plan[mealDocId(today().add(const Duration(days: 1)))];
     return _DashCard(
@@ -364,6 +365,9 @@ class _MealCard extends ConsumerWidget {
         [
           'Heute: ${todayMeal ?? 'noch nichts geplant'}',
           if (tomorrowMeal != null) 'Morgen: $tomorrowMeal',
+          // Jeden Tag ein anderer Vorschlag aus euren Rezepten.
+          if (todayMeal == null && recipes.isNotEmpty)
+            'Idee: ${recipes[today().difference(DateTime(2020)).inDays % recipes.length].title}',
         ].join('\n'),
       ),
     );

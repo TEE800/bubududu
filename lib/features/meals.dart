@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/providers.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
@@ -44,18 +45,44 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
 
   Future<void> _edit(DateTime day, String current) async {
     final controller = TextEditingController(text: current);
+    final recipes =
+        ref.read(recipesProvider(widget.householdId)).value ?? const [];
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           '${weekdayLong(day)}, ${day.day}. ${monthNames[day.month - 1]}',
         ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Was gibt es?'),
-          textCapitalization: TextCapitalization.sentences,
-          onSubmitted: (v) => Navigator.pop(context, v),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: 'Was gibt es?'),
+                textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (v) => Navigator.pop(context, v),
+              ),
+              if (recipes.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Aus euren Rezepten:'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final r in recipes)
+                      ActionChip(
+                        label: Text(r.title),
+                        onPressed: () => Navigator.pop(context, r.title),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           if (current.isNotEmpty)
