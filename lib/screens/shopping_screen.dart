@@ -113,10 +113,14 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                                 )
                               : null,
                         ),
-                        subtitle: household == null
+                        subtitle: household == null && !item.pending
                             ? null
                             : Text(
-                                'von ${household.memberNames[item.addedBy] ?? '?'}',
+                                [
+                                  if (household != null)
+                                    'von ${household.memberNames[item.addedBy] ?? '?'}',
+                                  if (item.pending) 'noch nicht abgeglichen',
+                                ].join(' · '),
                               ),
                         controlAffinity: ListTileControlAffinity.leading,
                         secondary: IconButton(

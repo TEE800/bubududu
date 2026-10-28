@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'offline.dart';
 import 'providers.dart';
 
 /// Ein Dokument aus einer Unter-Sammlung des Haushalts.
@@ -66,34 +67,44 @@ class HouseholdStore {
   CollectionReference<Map<String, dynamic>> col(String name) =>
       _db.collection('households/$householdId/$name');
 
-  Future<void> add(String collection, Map<String, dynamic> data) => col(
-    collection,
-  ).add({...data, 'createdBy': uid, 'createdAt': FieldValue.serverTimestamp()});
+  // Alle Schreibzugriffe warten nicht auf den Server, siehe offline.dart.
+  Future<void> add(String collection, Map<String, dynamic> data) =>
+      writeInBackground(
+        col(collection).doc().set({
+          ...data,
+          'createdBy': uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        }),
+      );
 
   Future<void> update(
     String collection,
     String id,
     Map<String, dynamic> data,
-  ) => col(collection).doc(id).update(data);
+  ) => writeInBackground(col(collection).doc(id).update(data));
 
   /// Legt an ([id] == null) oder aktualisiert.
   Future<void> save(String collection, String? id, Map<String, dynamic> data) =>
       id == null ? add(collection, data) : update(collection, id, data);
 
   Future<void> set(String collection, String id, Map<String, dynamic> data) =>
-      col(collection).doc(id).set(data, SetOptions(merge: true));
+      writeInBackground(
+        col(collection).doc(id).set(data, SetOptions(merge: true)),
+      );
 
   Future<void> delete(String collection, String id) =>
-      col(collection).doc(id).delete();
+      writeInBackground(col(collection).doc(id).delete());
 
   Future<void> updateHousehold(Map<String, dynamic> data) =>
-      _db.doc('households/$householdId').update(data);
+      writeInBackground(_db.doc('households/$householdId').update(data));
 
   /// Setzt einen Eintrag auf die Einkaufsliste (gleiches Format wie dort).
-  Future<void> addToShoppingList(String text) => col('shoppingItems').add({
-    'text': text,
-    'done': false,
-    'addedBy': uid,
-    'createdAt': FieldValue.serverTimestamp(),
-  });
+  Future<void> addToShoppingList(String text) => writeInBackground(
+    col('shoppingItems').doc().set({
+      'text': text,
+      'done': false,
+      'addedBy': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    }),
+  );
 }

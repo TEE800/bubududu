@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/offline.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
@@ -152,19 +153,21 @@ class HealthStore {
     if (old != null && old.isPrivate != isPrivate) await delete(old);
     final keep = old != null && old.isPrivate == isPrivate;
     if (isPrivate) {
-      keep
-          ? await privateCol.doc(old.id).update(data)
-          : await privateCol.add(data);
+      await writeInBackground(
+        keep ? privateCol.doc(old.id).update(data) : privateCol.doc().set(data),
+      );
     } else {
       await store.save('health', keep ? old.id : null, data);
     }
   }
 
   Future<void> delete(HealthEntry e) => e.isPrivate
-      ? store.firestore
-            .collection('users/${store.uid}/health')
-            .doc(e.id)
-            .delete()
+      ? writeInBackground(
+          store.firestore
+              .collection('users/${store.uid}/health')
+              .doc(e.id)
+              .delete(),
+        )
       : store.delete('health', e.id);
 }
 

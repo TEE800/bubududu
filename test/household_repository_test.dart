@@ -86,6 +86,8 @@ void main() {
     expect(recipes.single.addedBy, 'kevin');
 
     await repo.addShoppingItems('h1', recipes.single.ingredients, 'partner');
+    // Schreiben wartet nicht auf den Server; die Test-Datenbank braucht einen Moment.
+    await pumpEventQueue();
     final items = await repo.watchShoppingItems('h1').first;
     expect(
       items.map((i) => i.text),
