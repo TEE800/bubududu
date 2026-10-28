@@ -79,7 +79,7 @@ Future<String?> ensureLocationPermission() async {
   }
   if (permission == LocationPermission.denied ||
       permission == LocationPermission.deniedForever) {
-    return 'Ohne Standort-Berechtigung kann die App deinen Standort nicht teilen.';
+    return 'Ohne Standort-Berechtigung kann die App deinen Standort nicht nutzen.';
   }
   return null;
 }
@@ -170,52 +170,27 @@ class _LocationSharerState extends ConsumerState<LocationSharer> {
       if (!mounted) return;
       sharing ? _start() : _stop();
     });
-    if (!sharing) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.primaryContainer,
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => LocationScreen(householdId: widget.householdId),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Row(
-            children: [
-              Icon(
-                Icons.my_location,
-                size: 16,
-                color: scheme.onPrimaryContainer,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Du teilst gerade deinen Standort',
-                  style: TextStyle(color: scheme.onPrimaryContainer),
-                ),
-              ),
-              TextButton(
-                onPressed: () =>
-                    setShareLocation(ref, widget.householdId, false),
-                child: const Text('Aus'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    // Kein Banner: ob du teilst, steht auf der Startseite und unter „Wo seid ihr?“.
+    return const SizedBox.shrink();
   }
 }
 
-class LocationScreen extends ConsumerWidget {
+class LocationScreen extends ConsumerStatefulWidget {
   const LocationScreen({super.key, required this.householdId});
 
   final String householdId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LocationScreen> createState() => _LocationScreenState();
+}
+
+class _LocationScreenState extends ConsumerState<LocationScreen> {
+  bool _satellite = false;
+
+  String get householdId => widget.householdId;
+
+  @override
+  Widget build(BuildContext context) {
     final sharing = ref.watch(shareLocationProvider).value ?? false;
     final locations = ref.watch(locationsProvider(householdId));
     final names = memberNames(ref, householdId);
@@ -265,64 +240,110 @@ class LocationScreen extends ConsumerWidget {
                       trailing: Text(agoText(l.updatedAt)),
                     ),
                   Expanded(
-                    child: FlutterMap(
-                      options: MapOptions(
-                        initialCenter: center,
-                        initialZoom: 13,
-                      ),
+                    child: Stack(
                       children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'de.bubududu.bubududu',
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            for (final l in list)
-                              Marker(
-                                point: l.point,
-                                width: 120,
-                                height: 64,
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        l.uid == uid
-                                            ? 'Du'
-                                            : names[l.uid] ?? '?',
-                                        style: TextStyle(
+                        FlutterMap(
+                          options: MapOptions(
+                            initialCenter: center,
+                            initialZoom: 13,
+                          ),
+                          children: [
+                            if (_satellite) ...[
+                              TileLayer(
+                                urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                                userAgentPackageName: 'de.bubududu.bubududu',
+                              ),
+                              TileLayer(
+                                urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                                userAgentPackageName: 'de.bubududu.bubududu',
+                              ),
+                            ] else
+                              TileLayer(
+                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'de.bubududu.bubududu',
+                              ),
+                            MarkerLayer(
+                              markers: [
+                                for (final l in list)
+                                  Marker(
+                                    point: l.point,
+                                    width: 120,
+                                    height: 64,
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            l.uid == uid
+                                                ? 'Du'
+                                                : names[l.uid] ?? '?',
+                                            style: TextStyle(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.location_on,
+                                          size: 36,
                                           color: Theme.of(context)
                                               .colorScheme
-                                              .onPrimary,
+                                              .primary,
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    Icon(
-                                      Icons.location_on,
-                                      size: 36,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                    ),
-                                  ],
+                                  ),
+                              ],
+                            ),
+                            RichAttributionWidget(
+                              attributions: [
+                                TextSourceAttribution(
+                                  _satellite
+                                      ? 'Esri, Maxar, Earthstar Geographics'
+                                      : 'OpenStreetMap-Mitwirkende',
                                 ),
-                              ),
+                              ],
+                            ),
                           ],
                         ),
-                        const RichAttributionWidget(
-                          attributions: [
-                            TextSourceAttribution('OpenStreetMap-Mitwirkende'),
-                          ],
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: SegmentedButton<bool>(
+                            style: SegmentedButton.styleFrom(
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .surface,
+                            ),
+                            showSelectedIcon: false,
+                            segments: const [
+                              ButtonSegment(
+                                value: false,
+                                icon: Icon(Icons.map_outlined),
+                                label: Text('Karte'),
+                              ),
+                              ButtonSegment(
+                                value: true,
+                                icon: Icon(Icons.satellite_alt_outlined),
+                                label: Text('Satellit'),
+                              ),
+                            ],
+                            selected: {_satellite},
+                            onSelectionChanged: (s) =>
+                                setState(() => _satellite = s.first),
+                          ),
                         ),
                       ],
                     ),

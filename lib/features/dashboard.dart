@@ -19,6 +19,7 @@ import 'location.dart';
 import 'meals.dart';
 import 'tasks.dart';
 import 'us.dart';
+import 'weather_screen.dart';
 
 /// Einstellungen der Startseite liegen im Haushalts-Dokument:
 /// weatherPlace = {name, lat, lng}, stocks = [Symbole].
@@ -83,6 +84,7 @@ class DashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(weatherProvider);
+          ref.invalidate(devicePlaceProvider);
           ref.invalidate(stockQuoteProvider);
         },
         child: ListView(
@@ -178,20 +180,25 @@ class _WeatherCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final place = ref.watch(weatherPlaceProvider(householdId));
+    final location = ref.watch(weatherLocationProvider(householdId));
     void openSettings() => Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DashboardSettingsScreen(householdId: householdId),
       ),
     );
+    final place = location.value;
     if (place == null) {
       return _DashCard(
         icon: Icons.wb_sunny_outlined,
         title: 'Wetter',
         onTap: openSettings,
-        child: const Text(
-          'Tippe hier und wähle euren Ort, dann siehst du das Wetter.',
-        ),
+        child: location.isLoading
+            ? const LinearProgressIndicator()
+            : Text(
+                location.hasError
+                    ? 'Standort nicht verfügbar. Tippe hier und wähle euren Ort.'
+                    : 'Tippe hier und wähle euren Ort oder lass ihn automatisch erkennen.',
+              ),
       );
     }
     final weather = ref.watch(
@@ -200,7 +207,11 @@ class _WeatherCard extends ConsumerWidget {
     return _DashCard(
       icon: Icons.wb_sunny_outlined,
       title: 'Wetter in ${place.name.split(',').first}',
-      onTap: openSettings,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => WeatherScreen(place: place, onSettings: openSettings),
+        ),
+      ),
       child: weather.when(
         loading: () => const LinearProgressIndicator(),
         error: (e, _) => const Text('Wetter gerade nicht erreichbar.'),
@@ -224,7 +235,7 @@ class _WeatherCard extends ConsumerWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  for (final d in w.days)
+                  for (final d in w.days.take(3))
                     Expanded(
                       child: Column(
                         children: [
@@ -591,19 +602,19 @@ class _LocationCard extends ConsumerWidget {
     final others = (ref.watch(locationsProvider(householdId)).value ?? const [])
         .where((l) => l.uid != uid)
         .toList();
-    if (others.isEmpty) return const SizedBox.shrink();
+    final sharing = ref.watch(shareLocationProvider).value ?? false;
+    if (others.isEmpty && !sharing) return const SizedBox.shrink();
     final names = memberNames(ref, householdId);
     return _DashCard(
       icon: Icons.location_on_outlined,
       title: 'Standort',
       onTap: () => onOpenPage(LocationScreen(householdId: householdId)),
       child: Text(
-        others
-            .map(
-              (l) =>
-                  '${names[l.uid] ?? '?'} teilt den Standort (${agoText(l.updatedAt)})',
-            )
-            .join('\n'),
+        [
+          if (sharing) 'Du teilst gerade deinen Standort.',
+          for (final l in others)
+            '${names[l.uid] ?? '?'} teilt den Standort (${agoText(l.updatedAt)})',
+        ].join('\n'),
       ),
     );
   }
@@ -671,6 +682,7 @@ class _DashboardSettingsScreenState
     final store = ref.read(storeProvider(widget.householdId));
     final place = ref.watch(weatherPlaceProvider(widget.householdId));
     final symbols = ref.watch(stockSymbolsProvider(widget.householdId));
+    final auto = ref.watch(weatherAutoProvider(widget.householdId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Startseite einrichten')),
@@ -679,7 +691,27 @@ class _DashboardSettingsScreenState
         children: [
           if (_searching) const LinearProgressIndicator(),
           Text('Wetter', style: Theme.of(context).textTheme.titleMedium),
-          if (place != null)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.my_location),
+            title: const Text('Standort automatisch erkennen'),
+            subtitle: const Text(
+              'Wetter für den Ort, an dem das Handy gerade ist',
+            ),
+            value: auto,
+            onChanged: (v) async {
+              if (v) {
+                final error = await ensureLocationPermission();
+                if (error != null) {
+                  if (context.mounted) showError(context, error);
+                  return;
+                }
+                ref.invalidate(devicePlaceProvider);
+              }
+              await store.updateHousehold({'weatherAuto': v});
+            },
+          ),
+          if (!auto && place != null)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.place),
@@ -701,7 +733,10 @@ class _DashboardSettingsScreenState
             ListTile(
               title: Text(p.name),
               onTap: () async {
-                await store.updateHousehold({'weatherPlace': p.toMap()});
+                await store.updateHousehold({
+                  'weatherPlace': p.toMap(),
+                  'weatherAuto': false,
+                });
                 if (mounted) setState(() => _places = const []);
               },
             ),

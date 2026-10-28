@@ -10,7 +10,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 
 | Bereich | Funktionen |
 | --- | --- |
-| Start | Wetter für euren Ort, Aktien/ETFs, fällige Aufgaben, nächste Termine, Einkaufsliste, Essen heute, Finanzen, Erinnerungen, Jahrestag |
+| Start | Wetter für euren Ort oder automatisch per Standort, mit Detailansicht (Stunden, 7 Tage, Wind, UV), Aktien/ETFs, fällige Aufgaben, nächste Termine, Einkaufsliste, Essen heute, Finanzen, Erinnerungen, Jahrestag |
 | Einkauf | Gemeinsame Liste, live auf beiden Handys |
 | Haushalt | Aufgaben mit Zuständigkeit, Fälligkeit, Wiederholung und Punkten pro Monat |
 | Kalender | Monatsansicht, Termine mit Uhrzeit, Geburtstage und Jahrestage jährlich |
@@ -23,7 +23,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 | Reisen | Reisen mit gemeinsamer Packliste |
 | Gesundheit | Arzttermine, Impfungen und Vorsorge pro Person, Empfehlungen nach Alter, private Einträge |
 | Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus |
-| Wir | Zusammen seit, Date-Ideen, Bucket-Liste, Ziele, Standort teilen, Einladungscode |
+| Wir | Zusammen seit, Date-Ideen, Bucket-Liste, Ziele, Standort teilen (Karte oder Satellit), Einladungscode |
 
 Standort teilen ist freiwillig: Jede Person schaltet es für sich ein, solange es läuft,
 zeigt die App einen Hinweis-Balken. Geteilt wird nur, während die App geöffnet ist.
