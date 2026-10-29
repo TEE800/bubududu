@@ -140,7 +140,10 @@ void main() {
     expect(await repo.watchAlexaLinks('kevin').first, 0);
     // Das Einlösen macht die Cloud Function.
     await db.doc('alexaLinks/amzn1').set({'uid': 'kevin', 'householdId': 'h1'});
-    await db.doc('alexaLinks/amzn2').set({'uid': 'fritzi', 'householdId': 'h1'});
+    await db.doc('alexaLinks/amzn2').set({
+      'uid': 'fritzi',
+      'householdId': 'h1',
+    });
     expect(await repo.watchAlexaLinks('kevin').first, 1);
 
     await repo.unlinkAlexa('kevin');
