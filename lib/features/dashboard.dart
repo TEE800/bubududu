@@ -477,10 +477,14 @@ class _RemindersCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
-    final care =
-        (ref.watch(careProvider(householdId)).value ?? const <CareItem>[])
-            .where((c) => c.isDue(now))
-            .toList();
+    final all =
+        ref.watch(careProvider(householdId)).value ?? const <CareItem>[];
+    final care = [
+      for (final c in all)
+        if (c.isDue(now)) '${c.name}: ${c.action}',
+      for (final c in all)
+        if (c.isFertilizeDue(now)) '${c.name}: Düngen',
+    ];
     final deadlines = upcomingDeadlines(
       ref.watch(contractsProvider(householdId)).value ?? const [],
       now: now,
@@ -497,7 +501,7 @@ class _RemindersCard extends ConsumerWidget {
               onTap: () => onOpenPage(CareScreen(householdId: householdId)),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text('• ${c.name}: ${c.action}'),
+                child: Text('• $c'),
               ),
             ),
           for (final c in deadlines)
