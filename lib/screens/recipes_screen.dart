@@ -86,7 +86,8 @@ class RecipesScreen extends ConsumerWidget {
     }
     navigator.push(
       MaterialPageRoute(
-        builder: (_) => RecipeEditScreen(householdId: householdId, draft: draft),
+        builder: (_) =>
+            RecipeEditScreen(householdId: householdId, draft: draft),
       ),
     );
   }
@@ -420,9 +421,7 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
     text: widget.recipe?.title ?? widget.draft?.title,
   );
   late final _ingredients = TextEditingController(
-    text: (widget.recipe?.ingredients ?? widget.draft?.ingredients)?.join(
-      '\n',
-    ),
+    text: (widget.recipe?.ingredients ?? widget.draft?.ingredients)?.join('\n'),
   );
   late final _instructions = TextEditingController(
     text: widget.recipe?.instructions ?? widget.draft?.instructions,

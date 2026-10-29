@@ -35,7 +35,11 @@ Stange Lauch
 Butter
 Zubereitung
 Kartoffeln schälen.''');
-    expect(d.ingredients, ['800 g Kartoffeln', '1 Stange Lauch', '2 EL Butter']);
+    expect(d.ingredients, [
+      '800 g Kartoffeln',
+      '1 Stange Lauch',
+      '2 EL Butter',
+    ]);
     expect(d.instructions, 'Kartoffeln schälen.');
   });
 
@@ -48,7 +52,10 @@ Olivenöl
 Tomaten und Gurke klein schneiden und mit Öl vermengen.''');
     expect(d.title, 'Schneller Salat');
     expect(d.ingredients, ['2 Tomaten', '1 Gurke', 'Olivenöl']);
-    expect(d.instructions, 'Tomaten und Gurke klein schneiden und mit Öl vermengen.');
+    expect(
+      d.instructions,
+      'Tomaten und Gurke klein schneiden und mit Öl vermengen.',
+    );
   });
 
   test('Leerer Text', () {
