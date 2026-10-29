@@ -7,7 +7,7 @@ enum MascotMood {
   /// Fröhlich, Standard.
   happy,
 
-  /// Herzchen-Augen, für "Wir" und Jahrestage.
+  /// Fröhlich mit Herzchen darüber, für "Wir" und Jahrestage.
   love,
 
   /// Verschlafen, morgens früh und spät abends.
@@ -278,10 +278,6 @@ class MascotPainter extends CustomPainter {
     final eyes = [Offset(cx - 14, 55), Offset(cx + 14, 55)];
 
     switch (mood) {
-      case MascotMood.love:
-        for (final e in eyes) {
-          _heart(canvas, e, 9, const Color(0xFFE53950));
-        }
       case MascotMood.sleepy:
         for (final e in eyes) {
           canvas.drawArc(
@@ -304,7 +300,10 @@ class MascotPainter extends CustomPainter {
           Rect.fromCenter(center: Offset(cx - 15, 63), width: 4, height: 7),
           _fill(const Color(0xFF64B5F6)),
         );
-      case MascotMood.happy || MascotMood.shopping || MascotMood.travel:
+      case MascotMood.happy ||
+          MascotMood.love ||
+          MascotMood.shopping ||
+          MascotMood.travel:
         // Fröhlich zugekniffene Augen ^^
         for (final e in eyes) {
           canvas.drawArc(
