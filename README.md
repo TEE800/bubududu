@@ -78,7 +78,7 @@ die App automatisch ab. Noch nicht abgeglichene Einträge der Einkaufsliste sind
      Name `FIREBASE_SERVICE_ACCOUNT`, Inhalt der JSON-Datei einfügen. Datei danach löschen.
 
   Ab dann veröffentlicht GitHub nach jeder Änderung die Push-Funktion und die Firestore-Regeln
-  automatisch. Die Web-App wird nur veröffentlicht, wenn zusätzlich die Variable `PUBLISH_WEB=true` gesetzt ist.
+  automatisch, ebenso die Web-App unter https://bubududu-15f3f.web.app (abschalten mit der Repo-Variable `PUBLISH_WEB=false`).
 
 Jede Person kann beides unter **Mehr → Einstellungen** abschalten.
 
