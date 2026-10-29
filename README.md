@@ -93,14 +93,15 @@ Der Skill läuft als Entwickler-Skill auf allen Echos des eigenen Amazon-Kontos,
 Veröffentlichung im Skill-Store. Die Antworten kommen von der Cloud Function `alexa` in `functions/`.
 Einmalig einrichten:
 
-1. Die Funktion muss von außen erreichbar sein. In der
+1. Das GitHub-Dienstkonto muss die Funktion für Alexa öffentlich erreichbar machen dürfen. In der
    [Cloud Shell](https://console.cloud.google.com/?cloudshell=true&project=bubududu-15f3f) einmal:
    ```sh
-   gcloud run services add-iam-policy-binding alexa --region=europe-west3 \
-     --member=allUsers --role=roles/run.invoker --project=bubududu-15f3f
+   for r in roles/cloudfunctions.admin roles/run.admin; do
+     gcloud projects add-iam-policy-binding bubududu-15f3f --condition=None --role=$r \
+       --member=serviceAccount:github-deploy@bubududu-15f3f.iam.gserviceaccount.com
+   done
    ```
-   (Das darf das GitHub-Dienstkonto nicht selbst. Die Funktion prüft trotzdem bei jeder Anfrage,
-   dass sie wirklich von Amazon kommt.)
+   (Die Funktion prüft trotzdem bei jeder Anfrage, dass sie wirklich von Amazon kommt.)
 2. [developer.amazon.com/alexa/console/ask](https://developer.amazon.com/alexa/console/ask) mit dem
    Amazon-Konto öffnen, mit dem auch die Echos laufen → **Create Skill**: Name `Bubu Dudu`,
    Sprache **German (DE)**, Typ **Other → Custom**, Hosting **Provision your own**, Vorlage **Start from Scratch**.
