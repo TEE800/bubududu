@@ -106,7 +106,8 @@ export async function handleAlexa(envelope, store) {
     case 'AddItemIntent':
     // Nur das Wort, z. B. "Alexa, sag Bubu Dudu, Milch".
     case 'QuickAddIntent': {
-      const wanted = parseItems(slot('item'));
+      // Gleicher Slot-Name in zwei Intents ist nicht erlaubt, daher "ware".
+      const wanted = parseItems(slot('item') ?? slot('ware'));
       if (wanted.length === 0) {
         return say('Was soll auf die Liste?', { end: false, reprompt: EXAMPLE });
       }

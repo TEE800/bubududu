@@ -46,16 +46,16 @@
           "name": "QuickAddIntent",
           "slots": [
             {
-              "name": "item",
+              "name": "ware",
               "type": "WARE"
             }
           ],
           "samples": [
-            "{item}",
-            "{item} bitte",
-            "noch {item}",
-            "auch {item}",
-            "und {item}"
+            "{ware}",
+            "{ware} bitte",
+            "noch {ware}",
+            "auch {ware}",
+            "und {ware}"
           ]
         },
         {
