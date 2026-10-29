@@ -435,8 +435,10 @@ class _PositionTile extends ConsumerWidget {
             '${formatShares(p.shares)} Stück',
             if (change != null)
               'heute ${formatPercent(change)}'
-            else if (!v.live)
-              'kein Live-Kurs',
+            else if (p.symbol == null)
+              'kein Kürzel gefunden'
+            else if (quote?.hasError ?? false)
+              'Kurs für ${p.symbol} nicht abrufbar',
           ].join(' · '),
         ),
         trailing: Column(

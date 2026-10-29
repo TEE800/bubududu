@@ -1,8 +1,11 @@
 import 'package:bubududu/features/dashboard.dart';
 import 'package:bubududu/features/depot.dart';
+import 'package:bubududu/services/stocks.dart';
 import 'package:bubududu/util/trade_republic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'helpers.dart' as h;
 
@@ -348,6 +351,23 @@ void main() {
       expect(p.single.lastPrice, closeTo(95.02, 1e-9));
     });
 
+    test('Kurssuche weicht auf query2 aus, wenn query1 drosselt', () async {
+      final hosts = <String>[];
+      final client = MockClient((req) async {
+        hosts.add(req.url.host);
+        if (req.url.host == 'query1.finance.yahoo.com') {
+          return http.Response('Too Many Requests', 429);
+        }
+        return http.Response(
+          '{"quotes":[{"symbol":"ASME.DE","shortname":"ASML","exchDisp":"XETRA"}]}',
+          200,
+        );
+      });
+      final r = await searchStocks(client, 'NL0010273215');
+      expect(r.single.symbol, 'ASME.DE');
+      expect(hosts, ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']);
+    });
+
     test('lehnt fremde Dateien ab', () {
       expect(
         () => parseTradeRepublicCsv('Datum,Betrag\n2025-01-01,3'),
@@ -406,6 +426,7 @@ void main() {
       expect(find.text('+140,00 € · +46,67 %'), findsOneWidget);
       expect(find.text('+0,00 € · +0,00 %'), findsOneWidget);
       expect(find.textContaining('heute +10,00 %'), findsOneWidget);
+      expect(find.textContaining('kein Kürzel gefunden'), findsOneWidget);
     });
 
     testWidgets('sucht fehlende Kürzel automatisch über die ISIN', (
