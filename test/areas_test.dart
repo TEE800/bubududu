@@ -264,10 +264,7 @@ void main() {
       await tester.tap(find.text('Alexa verbinden'));
       await settle(tester);
       final code = (await db.collection('alexaCodes').get()).docs.single.id;
-      expect(
-        find.textContaining('Code ${code.split('').join(' ')}'),
-        findsOneWidget,
-      );
+      expect(find.text(code.split('').join(' ')), findsOneWidget);
       await tester.tap(find.text('Fertig'));
       await settle(tester);
 

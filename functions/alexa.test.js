@@ -71,6 +71,13 @@ test('Was schon offen draufsteht, kommt nicht doppelt', async () => {
   assert.equal(speech(r), 'Brot steht jetzt auf der Liste. Milch stand schon drauf.');
 });
 
+test('Nur das Wort reicht auch', async () => {
+  const store = fakeStore();
+  const r = await handleAlexa(intent('QuickAddIntent', { item: 'milch' }), store);
+  assert.deepEqual(store.added[0].texts, ['Milch']);
+  assert.equal(speech(r), 'Milch steht jetzt auf der Liste.');
+});
+
 test('Liste vorlesen', async () => {
   assert.equal(
     speech(await handleAlexa(intent('ReadListIntent'), fakeStore())),
@@ -87,6 +94,8 @@ test('Ohne Verbindung wird nichts eingetragen', async () => {
   const r = await handleAlexa(intent('AddItemIntent', { item: 'milch' }), store);
   assert.equal(store.added.length, 0);
   assert.match(speech(r), /noch nicht mit eurer App verbunden/);
+  // Offen lassen, damit man direkt den Code sagen kann.
+  assert.equal(r.response.shouldEndSession, false);
 });
 
 test('Verbinden mit Code aus der App', async () => {

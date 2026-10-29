@@ -43,6 +43,22 @@
           ]
         },
         {
+          "name": "QuickAddIntent",
+          "slots": [
+            {
+              "name": "item",
+              "type": "WARE"
+            }
+          ],
+          "samples": [
+            "{item}",
+            "{item} bitte",
+            "noch {item}",
+            "auch {item}",
+            "und {item}"
+          ]
+        },
+        {
           "name": "ReadListIntent",
           "slots": [],
           "samples": [
@@ -68,9 +84,12 @@
             }
           ],
           "samples": [
+            "{code}",
             "code {code}",
             "der code ist {code}",
+            "der code lautet {code}",
             "mein code ist {code}",
+            "code ist {code}",
             "verbinde mit code {code}",
             "verbinden mit code {code}",
             "mit code {code} verbinden"
@@ -97,7 +116,468 @@
           "samples": []
         }
       ],
-      "types": []
+      "types": [
+        {
+          "name": "WARE",
+          "values": [
+            {
+              "name": {
+                "value": "milch"
+              }
+            },
+            {
+              "name": {
+                "value": "eier"
+              }
+            },
+            {
+              "name": {
+                "value": "brot"
+              }
+            },
+            {
+              "name": {
+                "value": "butter"
+              }
+            },
+            {
+              "name": {
+                "value": "käse"
+              }
+            },
+            {
+              "name": {
+                "value": "joghurt"
+              }
+            },
+            {
+              "name": {
+                "value": "quark"
+              }
+            },
+            {
+              "name": {
+                "value": "sahne"
+              }
+            },
+            {
+              "name": {
+                "value": "nudeln"
+              }
+            },
+            {
+              "name": {
+                "value": "reis"
+              }
+            },
+            {
+              "name": {
+                "value": "kartoffeln"
+              }
+            },
+            {
+              "name": {
+                "value": "tomaten"
+              }
+            },
+            {
+              "name": {
+                "value": "gurke"
+              }
+            },
+            {
+              "name": {
+                "value": "paprika"
+              }
+            },
+            {
+              "name": {
+                "value": "zwiebeln"
+              }
+            },
+            {
+              "name": {
+                "value": "knoblauch"
+              }
+            },
+            {
+              "name": {
+                "value": "salat"
+              }
+            },
+            {
+              "name": {
+                "value": "äpfel"
+              }
+            },
+            {
+              "name": {
+                "value": "bananen"
+              }
+            },
+            {
+              "name": {
+                "value": "orangen"
+              }
+            },
+            {
+              "name": {
+                "value": "zitronen"
+              }
+            },
+            {
+              "name": {
+                "value": "erdbeeren"
+              }
+            },
+            {
+              "name": {
+                "value": "trauben"
+              }
+            },
+            {
+              "name": {
+                "value": "mehl"
+              }
+            },
+            {
+              "name": {
+                "value": "zucker"
+              }
+            },
+            {
+              "name": {
+                "value": "salz"
+              }
+            },
+            {
+              "name": {
+                "value": "pfeffer"
+              }
+            },
+            {
+              "name": {
+                "value": "öl"
+              }
+            },
+            {
+              "name": {
+                "value": "essig"
+              }
+            },
+            {
+              "name": {
+                "value": "kaffee"
+              }
+            },
+            {
+              "name": {
+                "value": "tee"
+              }
+            },
+            {
+              "name": {
+                "value": "wasser"
+              }
+            },
+            {
+              "name": {
+                "value": "saft"
+              }
+            },
+            {
+              "name": {
+                "value": "bier"
+              }
+            },
+            {
+              "name": {
+                "value": "wein"
+              }
+            },
+            {
+              "name": {
+                "value": "cola"
+              }
+            },
+            {
+              "name": {
+                "value": "klopapier"
+              }
+            },
+            {
+              "name": {
+                "value": "küchenrolle"
+              }
+            },
+            {
+              "name": {
+                "value": "spülmittel"
+              }
+            },
+            {
+              "name": {
+                "value": "waschmittel"
+              }
+            },
+            {
+              "name": {
+                "value": "zahnpasta"
+              }
+            },
+            {
+              "name": {
+                "value": "duschgel"
+              }
+            },
+            {
+              "name": {
+                "value": "shampoo"
+              }
+            },
+            {
+              "name": {
+                "value": "müsli"
+              }
+            },
+            {
+              "name": {
+                "value": "haferflocken"
+              }
+            },
+            {
+              "name": {
+                "value": "marmelade"
+              }
+            },
+            {
+              "name": {
+                "value": "honig"
+              }
+            },
+            {
+              "name": {
+                "value": "nutella"
+              }
+            },
+            {
+              "name": {
+                "value": "schokolade"
+              }
+            },
+            {
+              "name": {
+                "value": "chips"
+              }
+            },
+            {
+              "name": {
+                "value": "kekse"
+              }
+            },
+            {
+              "name": {
+                "value": "hackfleisch"
+              }
+            },
+            {
+              "name": {
+                "value": "hähnchen"
+              }
+            },
+            {
+              "name": {
+                "value": "wurst"
+              }
+            },
+            {
+              "name": {
+                "value": "schinken"
+              }
+            },
+            {
+              "name": {
+                "value": "lachs"
+              }
+            },
+            {
+              "name": {
+                "value": "tofu"
+              }
+            },
+            {
+              "name": {
+                "value": "pizza"
+              }
+            },
+            {
+              "name": {
+                "value": "pesto"
+              }
+            },
+            {
+              "name": {
+                "value": "tomatensoße"
+              }
+            },
+            {
+              "name": {
+                "value": "ketchup"
+              }
+            },
+            {
+              "name": {
+                "value": "senf"
+              }
+            },
+            {
+              "name": {
+                "value": "mayonnaise"
+              }
+            },
+            {
+              "name": {
+                "value": "brötchen"
+              }
+            },
+            {
+              "name": {
+                "value": "toast"
+              }
+            },
+            {
+              "name": {
+                "value": "frischkäse"
+              }
+            },
+            {
+              "name": {
+                "value": "mozzarella"
+              }
+            },
+            {
+              "name": {
+                "value": "parmesan"
+              }
+            },
+            {
+              "name": {
+                "value": "feta"
+              }
+            },
+            {
+              "name": {
+                "value": "karotten"
+              }
+            },
+            {
+              "name": {
+                "value": "brokkoli"
+              }
+            },
+            {
+              "name": {
+                "value": "zucchini"
+              }
+            },
+            {
+              "name": {
+                "value": "spinat"
+              }
+            },
+            {
+              "name": {
+                "value": "pilze"
+              }
+            },
+            {
+              "name": {
+                "value": "avocado"
+              }
+            },
+            {
+              "name": {
+                "value": "ingwer"
+              }
+            },
+            {
+              "name": {
+                "value": "basilikum"
+              }
+            },
+            {
+              "name": {
+                "value": "petersilie"
+              }
+            },
+            {
+              "name": {
+                "value": "müllbeutel"
+              }
+            },
+            {
+              "name": {
+                "value": "batterien"
+              }
+            },
+            {
+              "name": {
+                "value": "katzenfutter"
+              }
+            },
+            {
+              "name": {
+                "value": "hundefutter"
+              }
+            },
+            {
+              "name": {
+                "value": "taschentücher"
+              }
+            },
+            {
+              "name": {
+                "value": "alufolie"
+              }
+            },
+            {
+              "name": {
+                "value": "backpapier"
+              }
+            },
+            {
+              "name": {
+                "value": "hefe"
+              }
+            },
+            {
+              "name": {
+                "value": "backpulver"
+              }
+            },
+            {
+              "name": {
+                "value": "vanillezucker"
+              }
+            },
+            {
+              "name": {
+                "value": "eis"
+              }
+            },
+            {
+              "name": {
+                "value": "tiefkühlpizza"
+              }
+            },
+            {
+              "name": {
+                "value": "pommes"
+              }
+            }
+          ]
+        }
+      ]
     }
   }
 }

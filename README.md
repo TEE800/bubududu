@@ -84,7 +84,7 @@ Jede Person kann beides unter **Mehr → Einstellungen** abschalten.
 
 ## Alexa
 
-„Alexa, sag Bubu Dudu, setz Milch auf die Liste“ trägt Milch in die Einkaufsliste ein,
+„Alexa, sag Bubu Dudu, setz Milch auf die Liste“ (oder kurz „Alexa, sag Bubu Dudu, Milch“) trägt Milch in die Einkaufsliste ein,
 „Alexa, frag Bubu Dudu, was auf der Liste steht“ liest sie vor. Der Satz ohne „Bubu Dudu“
 geht leider nicht: „Alexa, setz Milch auf die Einkaufsliste“ landet immer in Amazons eigener
 Liste, und die darf seit 2024 keine andere App mehr lesen.
@@ -112,10 +112,10 @@ Einmalig einrichten:
    „My development endpoint is a sub-domain of a domain that has a wildcard certificate …“ → **Save**.
 5. Oben **Test** → „Skill testing is enabled in“ auf **Development** stellen.
 6. In der App **Mehr → Einstellungen → Alexa verbinden** antippen und den angezeigten Satz zum Echo sagen
-   („Alexa, sag Bubu Dudu, Code …“). Jede Person, die den Skill nutzt, verbindet sich so einmal.
+   („Alexa, öffne Bubu Dudu“ und dann die sechs Ziffern). Jede Person, die den Skill nutzt, verbindet sich so einmal.
 
-Optional nur den eigenen Skill zulassen: die Skill-ID (amzn1.ask.skill…) als
-`ALEXA_SKILL_ID=…` in `functions/.env` eintragen.
+Die Funktion nimmt nur Anfragen von diesem Skill an (Skill-ID in `functions/.env`). Wird der Skill
+neu angelegt, dort die neue ID (amzn1.ask.skill…) eintragen.
 
 ## Google-Kalender
 
