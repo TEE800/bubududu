@@ -22,7 +22,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 | Verträge | Kosten, Zahlungsrhythmus, Kündigungsfristen mit Hinweis |
 | Reisen | Reisen mit gemeinsamer Packliste |
 | Gesundheit | Arzttermine, Impfungen und Vorsorge pro Person, Empfehlungen nach Alter, private Einträge |
-| Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus |
+| Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus; Pflanzenprofile mit Standort, Düngen, Fotoverlauf und Zeitraffer |
 | Wir | Zusammen seit, Date-Ideen, Bucket-Liste, Ziele, Standort teilen (Karte oder Satellit), Einladungscode |
 
 Standort teilen ist freiwillig: Jede Person schaltet es für sich ein, solange es läuft,
@@ -78,7 +78,7 @@ die App automatisch ab. Noch nicht abgeglichene Einträge der Einkaufsliste sind
      Name `FIREBASE_SERVICE_ACCOUNT`, Inhalt der JSON-Datei einfügen. Datei danach löschen.
 
   Ab dann veröffentlicht GitHub nach jeder Änderung die Push-Funktion und die Firestore-Regeln
-  automatisch. Die Web-App wird nur veröffentlicht, wenn zusätzlich die Variable `PUBLISH_WEB=true` gesetzt ist.
+  automatisch, ebenso die Web-App unter https://bubududu-15f3f.web.app (abschalten mit der Repo-Variable `PUBLISH_WEB=false`).
 
 Jede Person kann beides unter **Mehr → Einstellungen** abschalten.
 

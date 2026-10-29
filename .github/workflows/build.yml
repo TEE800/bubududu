@@ -82,10 +82,10 @@ jobs:
           files: bubududu.apk
           make_latest: true
 
-      # Veröffentlicht die Web-App erst, wenn die Repo-Variable PUBLISH_WEB auf true steht
+      # Veröffentlicht die Web-App, solange die Repo-Variable PUBLISH_WEB nicht auf false steht
       # (Settings → Secrets and variables → Actions → Variables) und das Secret existiert.
       - name: Web-App veröffentlichen
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != '' && vars.PUBLISH_WEB == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != '' && vars.PUBLISH_WEB != 'false'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

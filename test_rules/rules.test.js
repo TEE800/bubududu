@@ -7,6 +7,7 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  Bytes,
   arrayUnion,
   collection,
   deleteDoc,
@@ -143,4 +144,15 @@ test('Alexa: Verbindung sehen und trennen nur die Person selbst', async () => {
   await assertFails(setDoc(doc(as('dudu'), 'alexaLinks/amzn-x'), { householdId: 'h1', uid: 'dudu' }));
   await assertFails(deleteDoc(doc(as('bubu'), 'alexaLinks/amzn-dudu')));
   await assertSucceeds(deleteDoc(doc(as('dudu'), 'alexaLinks/amzn-dudu')));
+});
+
+test('Pflanzenfotos: nur Mitglieder, nur Bilder bis knapp 1 MB', async () => {
+  const photo = (size) => ({ plantId: 'monstera', image: Bytes.fromUint8Array(new Uint8Array(size)) });
+  await assertSucceeds(setDoc(doc(as('dudu'), 'households/h1/plantPhotos/a'), photo(1000)));
+  await assertSucceeds(getDoc(doc(as('bubu'), 'households/h1/plantPhotos/a')));
+  await assertSucceeds(updateDoc(doc(as('bubu'), 'households/h1/plantPhotos/a'), { takenAt: new Date() }));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/plantPhotos/b'), photo(960000)));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/plantPhotos/c'), { plantId: 'x', image: 'kein Bild' }));
+  await assertFails(getDoc(doc(as('fremd'), 'households/h1/plantPhotos/a')));
+  await assertFails(setDoc(doc(as('fremd'), 'households/h1/plantPhotos/d'), photo(10)));
 });

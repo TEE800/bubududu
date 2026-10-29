@@ -128,6 +128,15 @@ List<Reminder> computeReminders({
       '${c.name}: ${c.action}',
       'Ist wieder fällig.',
     );
+    final fertilize = c.nextFertilize;
+    if (fertilize != null) {
+      add(
+        'fert:${c.id}:${fertilize.toIso8601String()}',
+        _at(fertilize.isBefore(dateOnly(now)) ? dateOnly(now) : fertilize, 9),
+        '${c.name}: Düngen',
+        'Ist wieder fällig.',
+      );
+    }
   }
 
   for (final h in upcomingAppointments(health, now)) {
