@@ -1,5 +1,6 @@
 import 'package:bubududu/features/dashboard.dart';
 import 'package:bubududu/features/depot.dart';
+import 'package:bubududu/features/depot_charts.dart';
 import 'package:bubududu/services/stocks.dart';
 import 'package:bubududu/util/trade_republic.dart';
 import 'package:flutter/material.dart';
@@ -417,7 +418,10 @@ void main() {
       // 2 × 220 € live + 3 × 10 € letzter Kaufkurs
       expect(find.text('470,00 €'), findsOneWidget);
       expect(find.text('Heute +40,00 €'), findsOneWidget);
-      expect(find.textContaining('Nur du siehst dein Depot'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.textContaining('Nur du siehst dein Depot'),
+        200,
+      );
     });
 
     testWidgets('zeigt Gewinn je Position in Euro und Prozent', (tester) async {
@@ -463,6 +467,40 @@ void main() {
       await tester.tap(find.text('Kürzel automatisch suchen'));
       await tester.pumpAndSettle();
       expect(find.widgetWithText(TextField, 'SAP.DE'), findsOneWidget);
+    });
+
+    testWidgets('Grafiken: Verlauf, Aufteilung, Gewinn', (tester) async {
+      await h.pumpPage(tester, const DepotScreen());
+      await tester.tap(find.text('Grafiken'));
+      await tester.pumpAndSettle();
+      expect(find.text('Verlauf'), findsOneWidget);
+      // Verlauf: 2 SAP × 200 € + 30 € fest bis 2 × 220 € + 30 €
+      expect(find.textContaining('+40,00 € (+9,30 %)'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Gewinn und Verlust'), 200);
+      expect(find.text('93,6 %'), findsOneWidget);
+      expect(find.text('6,4 %'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('+140,00 € · +46,67 %'), 200);
+    });
+
+    test('Verlauf füllt Lücken mit dem letzten Kurs', () {
+      PriceHistory hist(List<int> days, List<double> closes) => (
+        days: [for (final d in days) DateTime(2026, 1, d)],
+        closes: closes,
+        currency: 'EUR',
+      );
+      final points = combineHistory([
+        (shares: 2, factor: 1, history: hist([1, 2, 3], [10, 11, 12])),
+        (shares: 1, factor: 0.5, history: hist([2, 4], [100, 120])),
+      ], 5);
+      expect(
+        [for (final p in points) p.value],
+        [
+          5 + 20 + 50, // Tag 1: zweites Papier noch ohne Kurs -> erster Kurs
+          5 + 22 + 50,
+          5 + 24 + 50,
+          5 + 24 + 60,
+        ],
+      );
     });
 
     testWidgets('Kachel auf der Startseite', (tester) async {

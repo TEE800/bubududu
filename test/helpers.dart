@@ -66,6 +66,15 @@ final mockHttp = MockClient((request) async {
                 'currency': 'EUR',
                 'shortName': 'SAP SE',
               },
+              // Verlauf: 5 Handelstage, für die Grafiken
+              'timestamp': [for (var i = 0; i < 5; i++) 1759996800 + i * 86400],
+              'indicators': {
+                'quote': [
+                  {
+                    'close': [200.0, 205.0, null, 210.0, 220.0],
+                  },
+                ],
+              },
             },
           ],
         },

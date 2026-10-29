@@ -109,3 +109,50 @@ Future<List<StockSearchResult>> searchStocks(
         ),
   ];
 }
+
+/// Schlusskurse eines Wertpapiers, z. B. range '1mo', '6mo', '1y'.
+typedef PriceHistory = ({
+  List<DateTime> days,
+  List<double> closes,
+  String currency,
+});
+
+PriceHistory parseHistory(Map<String, dynamic> json) {
+  final result =
+      (json['chart']['result'] as List).first as Map<String, dynamic>;
+  final meta = result['meta'] as Map<String, dynamic>;
+  final stamps = (result['timestamp'] as List? ?? const []).cast<num>();
+  final quote =
+      ((result['indicators'] as Map?)?['quote'] as List?)?.firstOrNull as Map?;
+  final closes = (quote?['close'] as List? ?? const []);
+  final days = <DateTime>[];
+  final values = <double>[];
+  for (var i = 0; i < stamps.length && i < closes.length; i++) {
+    final c = closes[i];
+    if (c is! num) continue;
+    final t = DateTime.fromMillisecondsSinceEpoch(stamps[i].toInt() * 1000);
+    days.add(DateTime(t.year, t.month, t.day));
+    values.add(c.toDouble());
+  }
+  return (
+    days: days,
+    closes: values,
+    currency: meta['currency'] as String? ?? '',
+  );
+}
+
+final priceHistoryProvider =
+    FutureProvider.family<PriceHistory, ({String symbol, String range})>((
+      ref,
+      key,
+    ) async {
+      final res = await _yahooGet(
+        ref.watch(httpClientProvider),
+        '/v8/finance/chart/${key.symbol}',
+        {'range': key.range, 'interval': '1d'},
+      );
+      if (res == null || res.statusCode != 200) {
+        throw Exception('Verlauf nicht verfügbar');
+      }
+      return parseHistory(jsonDecode(res.body) as Map<String, dynamic>);
+    });
