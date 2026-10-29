@@ -1,0 +1,103 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "bubu dudu",
+      "intents": [
+        {
+          "name": "AddItemIntent",
+          "slots": [
+            {
+              "name": "item",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "setz {item} auf die liste",
+            "setze {item} auf die liste",
+            "setz {item} auf die einkaufsliste",
+            "setze {item} auf die einkaufsliste",
+            "schreib {item} auf die liste",
+            "schreibe {item} auf die liste",
+            "schreib {item} auf die einkaufsliste",
+            "schreibe {item} auf die einkaufsliste",
+            "pack {item} auf die liste",
+            "pack {item} auf die einkaufsliste",
+            "tu {item} auf die liste",
+            "{item} auf die liste",
+            "{item} auf die einkaufsliste",
+            "noch {item} auf die liste",
+            "füge {item} hinzu",
+            "füg {item} hinzu",
+            "füge {item} zur liste hinzu",
+            "füge {item} zur einkaufsliste hinzu",
+            "wir brauchen {item}",
+            "wir brauchen noch {item}",
+            "ich brauche {item}",
+            "ich brauche noch {item}",
+            "dass wir {item} brauchen",
+            "dass wir noch {item} brauchen",
+            "notier {item}",
+            "notiere {item}",
+            "{item} kaufen",
+            "wir müssen {item} kaufen"
+          ]
+        },
+        {
+          "name": "ReadListIntent",
+          "slots": [],
+          "samples": [
+            "was steht auf der liste",
+            "was steht auf der einkaufsliste",
+            "was ist auf der liste",
+            "was ist auf der einkaufsliste",
+            "lies die liste vor",
+            "lies mir die liste vor",
+            "lies die einkaufsliste vor",
+            "lies mir die einkaufsliste vor",
+            "was müssen wir kaufen",
+            "was brauchen wir",
+            "was fehlt uns"
+          ]
+        },
+        {
+          "name": "LinkIntent",
+          "slots": [
+            {
+              "name": "code",
+              "type": "AMAZON.NUMBER"
+            }
+          ],
+          "samples": [
+            "code {code}",
+            "der code ist {code}",
+            "mein code ist {code}",
+            "verbinde mit code {code}",
+            "verbinden mit code {code}",
+            "mit code {code} verbinden"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}
