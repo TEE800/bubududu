@@ -36,6 +36,24 @@ final mockHttp = MockClient((request) async {
       200,
     );
   }
+  if (request.url.path == '/v1/finance/search') {
+    final q = request.url.queryParameters['q'] ?? '';
+    return http.Response(
+      jsonEncode({
+        'quotes': q.startsWith('DE') || q.contains('SAP')
+            ? [
+                {'symbol': 'SAP', 'shortname': 'SAP SE', 'exchDisp': 'NYSE'},
+                {
+                  'symbol': 'SAP.DE',
+                  'shortname': 'SAP SE',
+                  'exchDisp': 'XETRA',
+                },
+              ]
+            : [],
+      }),
+      200,
+    );
+  }
   if (request.url.host == 'query1.finance.yahoo.com') {
     return http.Response(
       jsonEncode({

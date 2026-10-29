@@ -72,15 +72,51 @@ final euroQuoteProvider = FutureProvider.family<EuroQuote, String>((
   return (price: price, changePercent: q.changePercent);
 });
 
-/// Sucht zur ISIN das Yahoo-Kürzel, am liebsten an einer deutschen Börse (Euro).
-Future<String?> resolveSymbol(http.Client client, String isin) async {
-  final results = await searchStocks(client, isin);
+/// Sucht zur ISIN (sonst zum Namen) das Yahoo-Kürzel, am liebsten an einer
+/// deutschen Börse, damit der Kurs schon in Euro ist.
+Future<String?> resolveSymbol(
+  http.Client client,
+  String isin, {
+  String? name,
+}) async {
+  var results = await searchStocks(client, isin);
+  if (results.isEmpty && name != null && name.isNotEmpty) {
+    results = await searchStocks(client, name);
+  }
+  return bestSymbol(results);
+}
+
+String? bestSymbol(List<StockSearchResult> results) {
   if (results.isEmpty) return null;
-  for (final suffix in ['.DE', '.F', '.SG', '.MU']) {
+  for (final suffix in ['.DE', '.F', '.SG', '.MU', '.DU', '.HM', '.BE']) {
     final hit = results.where((r) => r.symbol.endsWith(suffix)).firstOrNull;
     if (hit != null) return hit.symbol;
   }
   return results.first.symbol;
+}
+
+/// Ergänzt fehlende Kürzel. Gibt null zurück, wenn nichts neu gefunden wurde.
+Future<List<DepotPosition>?> fillMissingSymbols(
+  http.Client client,
+  List<DepotPosition> positions,
+) async {
+  var found = false;
+  final result = await Future.wait([
+    for (final p in positions)
+      if (p.symbol != null)
+        Future.value(p)
+      else
+        resolveSymbol(
+          client,
+          p.isin,
+          name: p.name,
+        ).catchError((_) => null).then((s) {
+          if (s == null) return p;
+          found = true;
+          return p.copyWith(symbol: s);
+        }),
+  ]);
+  return found ? result : null;
 }
 
 /// Aktueller Wert einer Position und Tagesveränderung, falls bekannt.
@@ -142,6 +178,9 @@ String formatShares(double shares) {
   return s.replaceAll('.', ',');
 }
 
+String formatPercent(double percent) =>
+    '${percent >= 0 ? '+' : ''}${percent.toStringAsFixed(2).replaceAll('.', ',')} %';
+
 Color gainColor(BuildContext context, double amount) =>
     amount >= 0 ? Colors.green.shade700 : Theme.of(context).colorScheme.error;
 
@@ -154,6 +193,19 @@ class DepotScreen extends ConsumerStatefulWidget {
 
 class _DepotScreenState extends ConsumerState<DepotScreen> {
   bool _busy = false;
+  bool _symbolsChecked = false;
+
+  /// Einmal pro Öffnen: fehlende Kürzel automatisch über die ISIN suchen.
+  Future<void> _fillSymbols(List<DepotPosition> positions) async {
+    _symbolsChecked = true;
+    if (positions.every((p) => p.symbol != null)) return;
+    final filled = await fillMissingSymbols(
+      ref.read(httpClientProvider),
+      positions,
+    );
+    if (filled == null || !mounted) return;
+    await saveDepot(ref.read(firestoreProvider), ref.read(uidProvider), filled);
+  }
 
   Future<void> _import() async {
     final file = await FilePicker.pickFile(
@@ -172,17 +224,15 @@ class _DepotScreenState extends ConsumerState<DepotScreen> {
         for (final p in ref.read(depotProvider).value?.positions ?? const [])
           p.isin: p,
       };
-      final client = ref.read(httpClientProvider);
-      final positions = await Future.wait([
+      final withOld = [
         for (final p in parsed)
-          if (old[p.isin]?.symbol != null)
-            Future.value(p.copyWith(symbol: old[p.isin]!.symbol))
-          else
-            resolveSymbol(
-              client,
-              p.isin,
-            ).catchError((_) => null).then((s) => p.copyWith(symbol: s)),
-      ]);
+          old[p.isin]?.symbol != null
+              ? p.copyWith(symbol: old[p.isin]!.symbol)
+              : p,
+      ];
+      final positions =
+          await fillMissingSymbols(ref.read(httpClientProvider), withOld) ??
+          withOld;
       if (!mounted) return;
       final ok = await showDialog<bool>(
         context: context,
@@ -225,9 +275,17 @@ class _DepotScreenState extends ConsumerState<DepotScreen> {
       MaterialPageRoute(builder: (_) => _PositionEditScreen(position: p)),
     );
     if (result == null) return;
+    var edited = result.position;
+    if (edited != null && edited.symbol == null) {
+      edited =
+          (await fillMissingSymbols(ref.read(httpClientProvider), [
+            edited,
+          ]))?.first ??
+          edited;
+    }
     final positions = [...?ref.read(depotProvider).value?.positions]
       ..removeWhere((x) => x.isin == (p?.isin ?? result.position?.isin));
-    if (result.position != null) positions.add(result.position!);
+    if (edited != null) positions.add(edited);
     positions.sort(
       (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
     );
@@ -243,6 +301,11 @@ class _DepotScreenState extends ConsumerState<DepotScreen> {
     final depot = ref.watch(depotProvider);
     final positions = depot.value?.positions ?? const <DepotPosition>[];
     final total = ref.watch(depotTotalProvider);
+    if (!_symbolsChecked && depot.hasValue && positions.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_symbolsChecked) _fillSymbols(positions);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -364,23 +427,29 @@ class _PositionTile extends ConsumerWidget {
         : ref.watch(euroQuoteProvider(p.symbol!));
     final v = positionValue(p, quote);
     final change = quote?.value?.changePercent;
+    final gain = v.value - p.invested;
     return Card(
       child: ListTile(
         onTap: onTap,
         title: Text(p.name, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          '${formatShares(p.shares)} Stück'
-          '${v.live ? '' : ' · kein Live-Kurs'}',
+          [
+            '${formatShares(p.shares)} Stück',
+            if (change != null)
+              'heute ${formatPercent(change)}'
+            else if (!v.live)
+              'kein Live-Kurs',
+          ].join(' · '),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(formatEuro(v.value)),
-            if (change != null)
+            if (p.invested > 0)
               Text(
-                '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2).replaceAll('.', ',')} %',
-                style: TextStyle(color: gainColor(context, change)),
+                '${formatSigned(gain)} · ${formatPercent(gain / p.invested * 100)}',
+                style: TextStyle(color: gainColor(context, gain)),
               ),
           ],
         ),
@@ -427,16 +496,27 @@ class _PositionEditScreenState extends ConsumerState<_PositionEditScreen> {
   double? _num(String s) =>
       double.tryParse(s.trim().replaceAll('.', '').replaceAll(',', '.'));
 
+  /// Sucht über ISIN und Name; den besten Treffer trägt es direkt ein,
+  /// die anderen stehen zur Auswahl darunter.
   Future<void> _search() async {
-    final q = _isin.text.trim().isNotEmpty ? _isin.text : _name.text;
-    if (q.trim().isEmpty) return;
-    final r = await searchStocks(
-      ref.read(httpClientProvider),
-      q.trim(),
-    ).catchError((_) => <StockSearchResult>[]);
+    final client = ref.read(httpClientProvider);
+    var r = <StockSearchResult>[];
+    for (final q in [_isin.text.trim(), _name.text.trim()]) {
+      if (q.isEmpty || r.isNotEmpty) continue;
+      r = await searchStocks(
+        client,
+        q,
+      ).catchError((_) => <StockSearchResult>[]);
+    }
     if (!mounted) return;
-    setState(() => _results = r);
-    if (r.isEmpty) showError(context, 'Nichts gefunden.');
+    final best = bestSymbol(r);
+    setState(() {
+      if (best != null) _symbol.text = best;
+      _results = r;
+    });
+    if (r.isEmpty) {
+      showError(context, 'Nichts gefunden. Probier den Namen oder die ISIN.');
+    }
   }
 
   void _save() {
@@ -499,15 +579,19 @@ class _PositionEditScreenState extends ConsumerState<_PositionEditScreen> {
         ),
         TextField(
           controller: _symbol,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             labelText: 'Kürzel für Live-Kurs',
             hintText: 'z. B. SAP.DE',
-            suffixIcon: IconButton(
-              tooltip: 'Kürzel suchen',
-              icon: const Icon(Icons.search),
-              onPressed: _search,
-            ),
+            helperText:
+                'Wird automatisch über die ISIN gesucht. '
+                'Leer lassen oder unten suchen.',
+            helperMaxLines: 2,
           ),
+        ),
+        OutlinedButton.icon(
+          onPressed: _search,
+          icon: const Icon(Icons.search),
+          label: const Text('Kürzel automatisch suchen'),
         ),
         for (final r in _results)
           ListTile(

@@ -6,7 +6,7 @@
 /// "datetime","date","account_type","category","type","asset_class","name",
 /// "symbol","shares","price","amount","fee","tax","currency",...
 /// "symbol" ist die ISIN. Relevant sind nur Zeilen mit Stückzahl aus den
-/// Kategorien TRADING, DELIVERY und CORPORATE_ACTION; bei CASH-Zeilen
+/// Kategorien außer CASH (TRADING, DELIVERY, CORPORATE_ACTION, ...); bei CASH-Zeilen
 /// (z. B. Dividenden) steht in "shares" nur der Bestand zur Info.
 library;
 
@@ -132,7 +132,8 @@ bool _isOutgoing(String type) =>
     type.contains('OUTGOING') ||
     type.contains('REMOVAL');
 
-const _positionCategories = {'TRADING', 'DELIVERY', 'CORPORATE_ACTION'};
+/// In CASH-Zeilen (z. B. Dividenden) steht in "shares" nur der Bestand zur Info.
+bool _changesShares(String category) => category != 'CASH';
 
 /// Rechnet aus dem Transaktionsexport die aktuellen Positionen aus.
 /// Wirft [FormatException], wenn die Datei kein Trade-Republic-Export ist.
@@ -182,7 +183,7 @@ List<DepotPosition> parseTradeRepublicCsv(String text) {
 
   for (final r in data) {
     final category = at(r, iCategory).toUpperCase();
-    if (!_positionCategories.contains(category)) continue;
+    if (!_changesShares(category)) continue;
     final isin = at(r, iSymbol);
     final qty = _number(at(r, iShares), german: german);
     if (isin.isEmpty || qty == null || qty == 0) continue;

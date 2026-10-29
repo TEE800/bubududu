@@ -199,6 +199,50 @@ void main() {
       expect(find.textContaining('Nur du siehst dein Depot'), findsOneWidget);
     });
 
+    testWidgets('zeigt Gewinn je Position in Euro und Prozent', (tester) async {
+      await h.pumpPage(tester, const DepotScreen());
+      // SAP: 440 € Wert, 300 € bezahlt
+      expect(find.text('+140,00 € · +46,67 %'), findsOneWidget);
+      expect(find.text('+0,00 € · +0,00 %'), findsOneWidget);
+      expect(find.textContaining('heute +10,00 %'), findsOneWidget);
+    });
+
+    testWidgets('sucht fehlende Kürzel automatisch über die ISIN', (
+      tester,
+    ) async {
+      await h.db.doc('users/kevin').set({
+        'depot': {
+          'positions': [
+            const DepotPosition(
+              isin: 'DE0007164600',
+              name: 'SAP SE',
+              shares: 1,
+              invested: 100,
+              lastPrice: 100,
+            ).toMap(),
+          ],
+        },
+      });
+      await h.pumpPage(tester, const DepotScreen());
+      await tester.pumpAndSettle();
+      final saved = (await h.db.doc('users/kevin').get()).data()!['depot'];
+      expect((saved['positions'] as List).single['symbol'], 'SAP.DE');
+      expect(find.text('220,00 €'), findsWidgets);
+    });
+
+    testWidgets('Kürzel-Knopf trägt den besten Treffer ein', (tester) async {
+      await h.pumpPage(tester, const DepotScreen());
+      await tester.tap(find.text('Ohne Kurs AG'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ISIN (freiwillig)'),
+        'DE0007164600',
+      );
+      await tester.tap(find.text('Kürzel automatisch suchen'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'SAP.DE'), findsOneWidget);
+    });
+
     testWidgets('Kachel auf der Startseite', (tester) async {
       await h.pumpPage(
         tester,
