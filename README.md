@@ -114,8 +114,8 @@ Einmalig einrichten:
 6. In der App **Mehr → Einstellungen → Alexa verbinden** antippen und den angezeigten Satz zum Echo sagen
    („Alexa, öffne Bubu Dudu“ und dann die sechs Ziffern). Jede Person, die den Skill nutzt, verbindet sich so einmal.
 
-Optional nur den eigenen Skill zulassen: die Skill-ID (amzn1.ask.skill…) als
-`ALEXA_SKILL_ID=…` in `functions/.env` eintragen.
+Die Funktion nimmt nur Anfragen von diesem Skill an (Skill-ID in `functions/.env`). Wird der Skill
+neu angelegt, dort die neue ID (amzn1.ask.skill…) eintragen.
 
 ## Google-Kalender
 
