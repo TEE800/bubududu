@@ -106,11 +106,9 @@ Future<List<DepotPosition>?> fillMissingSymbols(
       if (p.symbol != null)
         Future.value(p)
       else
-        resolveSymbol(
-          client,
-          p.isin,
-          name: p.name,
-        ).catchError((_) => null).then((s) {
+        // Nur über die ISIN: ein Treffer zum Namen kann ein anderes
+        // Wertpapier sein (z. B. ein anderer MSCI-World-ETF).
+        resolveSymbol(client, p.isin).catchError((_) => null).then((s) {
           if (s == null) return p;
           found = true;
           return p.copyWith(symbol: s);

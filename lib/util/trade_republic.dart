@@ -116,11 +116,12 @@ List<List<String>> parseCsv(String text, {String delimiter = ','}) {
   return rows;
 }
 
-/// "2.2431330000" (Original) oder "2,243133" (nach Excel auf Deutsch).
-double? _number(String raw, {required bool german}) {
+/// "2.2431330000" (Original) oder "2,243133" / "1.200,50" (nach Excel auf
+/// Deutsch). Mehrere Punkte ohne Komma sind nicht eindeutig und zählen nicht.
+double? _number(String raw) {
   var s = raw.trim();
   if (s.isEmpty) return null;
-  if (german) s = s.replaceAll('.', '').replaceAll(',', '.');
+  if (s.contains(',')) s = s.replaceAll('.', '').replaceAll(',', '.');
   return double.tryParse(s);
 }
 
@@ -146,11 +147,10 @@ bool _changesShares(String category) => category != 'CASH';
 List<DepotPosition> parseTradeRepublicCsv(String text) {
   if (text.startsWith('﻿')) text = text.substring(1);
   final firstLine = text.split('\n').first;
-  final delimiter =
-      ';'.allMatches(firstLine).length > ','.allMatches(firstLine).length
-      ? ';'
-      : ',';
-  final german = delimiter == ';';
+  final delimiter = [',', ';', '\t'].reduce(
+    (a, b) =>
+        b.allMatches(firstLine).length > a.allMatches(firstLine).length ? b : a,
+  );
   final rows = parseCsv(text, delimiter: delimiter);
   if (rows.isEmpty) {
     throw const FormatException('Die Datei ist leer.');
@@ -177,21 +177,34 @@ List<DepotPosition> parseTradeRepublicCsv(String text) {
 
   final data = rows.skip(1).toList();
   // Der Export ist meist neueste zuerst; wir rechnen von alt nach neu.
+  // Bei gleicher Zeit zuerst Ausbuchungen, damit ein Umtausch (alte ISIN
+  // raus, neue rein) den Einstandswert weitergeben kann.
+  bool isOut(List<String> r) => at(r, iShares).startsWith('-');
   if (iDate >= 0) {
-    data.sort((a, b) => at(a, iDate).compareTo(at(b, iDate)));
+    data.sort((a, b) {
+      final byDate = at(a, iDate).compareTo(at(b, iDate));
+      if (byDate != 0) return byDate;
+      return (isOut(a) ? 0 : 1) - (isOut(b) ? 0 : 1);
+    });
   }
+  final iDay = col('date') >= 0 ? col('date') : iDate;
 
   final shares = <String, double>{};
   final invested = <String, double>{};
   final names = <String, String>{};
   final classes = <String, String>{};
   final prices = <String, double>{};
+  // Kapitalmaßnahmen ohne Geldfluss (Umtausch, Split): was die alten Stücke
+  // gekostet haben und wert waren, geht an die neuen Stücke desselben Tages.
+  // Die alten Stücke behalten ihren Einstand, bis sie ganz weg sind; so geht
+  // auch ein späterer Storno der Ausbuchung nicht verloren.
+  final released = <String, ({String isin, double invested, double value})>{};
 
   for (final r in data) {
     final category = at(r, iCategory).toUpperCase();
     if (!_changesShares(category)) continue;
     final isin = at(r, iSymbol);
-    final qty = _number(at(r, iShares), german: german);
+    final qty = _number(at(r, iShares));
     if (isin.isEmpty || qty == null || qty == 0) continue;
 
     var type = at(r, iType).toUpperCase();
@@ -208,29 +221,50 @@ List<DepotPosition> parseTradeRepublicCsv(String text) {
     } else {
       delta = (outgoing != cancelled) ? -qty : qty;
     }
-    final amount = _number(at(r, iAmount), german: german) ?? 0;
-    final cost =
-        amount.abs() + (_number(at(r, iFee), german: german) ?? 0).abs();
+    final amount = _number(at(r, iAmount)) ?? 0;
+    final cost = amount.abs() + (_number(at(r, iFee)) ?? 0).abs();
 
     final held = shares[isin] ?? 0;
     final paid = invested[isin] ?? 0;
-    if (delta > 0) {
+    final moneyless =
+        category != 'TRADING' && amount == 0 && cost == 0 && !cancelled;
+    final group = '${at(r, iDay)}|$type';
+    if (moneyless && delta < 0 && held > 0) {
+      // Alte Stücke gehen raus: Einstand und Wert für die neuen merken.
+      final part = (-delta / held).clamp(0.0, 1.0);
+      released[group] = (
+        isin: isin,
+        invested: paid * part,
+        value: -delta * (prices[isin] ?? 0),
+      );
+    } else if (moneyless &&
+        delta > 0 &&
+        released[group] != null &&
+        released[group]!.isin != isin) {
+      final from = released.remove(group)!;
+      final source = invested[from.isin] ?? 0;
+      invested[from.isin] = source - from.invested;
+      invested[isin] = paid + from.invested;
+      if (from.value > 0) {
+        prices[isin] =
+            (from.value + held * (prices[isin] ?? 0)) / (held + delta);
+      }
+    } else if (delta > 0) {
       invested[isin] = paid + cost;
     } else if (cancelled && !outgoing) {
       // Storno eines Kaufs: Kaufbetrag wieder abziehen.
       invested[isin] = paid - cost;
-    } else if (held > 0 && (category == 'TRADING' || amount != 0)) {
+    } else if (held > 0 && !cancelled) {
       invested[isin] = paid * ((held + delta) / held).clamp(0, 1);
     }
-    // Kapitalmaßnahmen ohne Geldfluss (z. B. Split: alte Stücke raus, neue
-    // rein) lassen den Einstandswert stehen.
+    // Gratisaktien ändern nur die Stückzahl, nicht den Einstandswert.
     shares[isin] = held + delta;
 
     final name = at(r, iName);
     if (name.isNotEmpty) names[isin] = name;
     final assetClass = at(r, iClass);
     if (assetClass.isNotEmpty) classes[isin] = assetClass;
-    final price = _number(at(r, iPrice), german: german);
+    final price = _number(at(r, iPrice));
     if (category == 'TRADING' && price != null && price > 0) {
       prices[isin] = price;
     }

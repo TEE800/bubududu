@@ -211,6 +211,143 @@ void main() {
       expect(byIsin['C']!.invested, 99);
     });
 
+    test('Gratisaktien mit Storno und Umtausch in neue ISIN', () {
+      String r(
+        String t,
+        String cat,
+        String type,
+        String name,
+        String isin,
+        String n,
+        String price,
+        String amount, {
+        String fee = '',
+      }) => row(t, cat, type, name, isin, n, price, amount, fee: fee);
+      final csv = [
+        header,
+        // Wie im echten Export: neueste zuerst, neue ISIN vor der alten.
+        r(
+          '2026-08-19T07:46:02.978Z',
+          'TRADING',
+          'SELL',
+          'Auto AG',
+          'CN01',
+          '-282.3529200000',
+          '0.9858',
+          '278.34',
+          fee: '-1.00',
+        ),
+        r(
+          '2026-07-02T11:21:37.697Z',
+          'CORPORATE_ACTION',
+          'EXCHANGE',
+          'Öl Holdings',
+          'US02',
+          '21.0504100000',
+          '',
+          '',
+        ),
+        r(
+          '2026-07-02T11:21:37.697Z',
+          'CORPORATE_ACTION',
+          'EXCHANGE',
+          'Öl',
+          'US01',
+          '-21.0504100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-08-13T05:22:45.443Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE',
+          'Auto AG',
+          'CN01',
+          '75.2941100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-08-13T05:09:14.774Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE_CANCELLED',
+          'Auto AG',
+          'CN01',
+          '-75.2941100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-07-30T06:25:35.095Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE',
+          'Auto AG',
+          'CN01',
+          '112.9411700000',
+          '',
+          '',
+        ),
+        r(
+          '2025-07-30T06:25:21.431Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE',
+          'Auto AG',
+          'CN01',
+          '75.2941100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-04-29T14:22:51.744Z',
+          'TRADING',
+          'BUY',
+          'Auto AG',
+          'CN01',
+          '90.0000000000',
+          '4.25',
+          '-382.50',
+          fee: '-1.00',
+        ),
+        r(
+          '2025-04-29T14:22:51.744Z',
+          'TRADING',
+          'BUY',
+          'Auto AG',
+          'CN01',
+          '4.1176400000',
+          '4.25',
+          '-17.50',
+        ),
+        r(
+          '2025-04-24T16:09:32.670Z',
+          'TRADING',
+          'BUY',
+          'Öl',
+          'US01',
+          '20.0000000000',
+          '95.02',
+          '-190.04',
+          fee: '-1.00',
+        ),
+        r(
+          '2025-04-24T16:09:32.667Z',
+          'TRADING',
+          'BUY',
+          'Öl',
+          'US01',
+          '1.0504100000',
+          '95.02',
+          '-9.98',
+        ),
+      ].join('\n');
+      final p = parseTradeRepublicCsv(csv);
+      // Auto AG ist komplett verkauft, die alte Öl-ISIN ist umgetauscht.
+      expect(p.map((x) => x.isin), ['US02']);
+      expect(p.single.shares, closeTo(21.05041, 1e-9));
+      expect(p.single.invested, closeTo(201.02, 1e-9));
+      expect(p.single.lastPrice, closeTo(95.02, 1e-9));
+    });
+
     test('lehnt fremde Dateien ab', () {
       expect(
         () => parseTradeRepublicCsv('Datum,Betrag\n2025-01-01,3'),
