@@ -256,5 +256,30 @@ void main() {
       expect(user['notify'], {'partner': false});
       expect(user['displayName'], 'Dudu');
     });
+
+    testWidgets('Alexa verbinden zeigt einen Code', (tester) async {
+      await pumpPage(tester, const SettingsScreen(householdId: 'h1'));
+      await tester.ensureVisible(find.text('Alexa verbinden'));
+      await settle(tester);
+      await tester.tap(find.text('Alexa verbinden'));
+      await settle(tester);
+      final code = (await db.collection('alexaCodes').get()).docs.single.id;
+      expect(
+        find.textContaining('Code ${code.split('').join(' ')}'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Fertig'));
+      await settle(tester);
+
+      await db.doc('alexaLinks/amzn1').set({
+        'uid': 'kevin',
+        'householdId': 'h1',
+      });
+      await settle(tester);
+      expect(find.text('Mit Alexa verbunden'), findsOneWidget);
+      await tester.tap(find.text('Trennen'));
+      await settle(tester);
+      expect((await db.doc('alexaLinks/amzn1').get()).exists, isFalse);
+    });
   });
 }

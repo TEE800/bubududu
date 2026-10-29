@@ -10,11 +10,15 @@ import {
   Bytes,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
+  query,
   setDoc,
+  Timestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 
 let env;
@@ -48,6 +52,7 @@ beforeEach(async () => {
     });
     await setDoc(doc(db, 'invites/NEU123'), { householdId: 'solo', createdBy: 'dudu' });
     await setDoc(doc(db, 'users/bubu'), { displayName: 'Bubu', householdId: 'h1' });
+    await setDoc(doc(db, 'alexaLinks/amzn-dudu'), { householdId: 'h1', uid: 'dudu' });
   });
 });
 
@@ -117,6 +122,28 @@ test('Standort: lesen beide, schreiben nur den eigenen', async () => {
   await assertSucceeds(setDoc(doc(as('dudu'), 'households/h1/locations/dudu'), { lat: 3 }));
   await assertFails(setDoc(doc(as('dudu'), 'households/h1/locations/bubu'), { lat: 0 }));
   await assertFails(getDoc(doc(as('fremd'), 'households/h1/locations/bubu')));
+});
+
+test('Alexa: Code nur für den eigenen Haushalt, kurz gültig, nicht lesbar', async () => {
+  const soon = () => Timestamp.fromMillis(Date.now() + 15 * 60 * 1000);
+  const code = (uid, householdId, expiresAt = soon()) => ({ uid, householdId, expiresAt });
+  await assertSucceeds(setDoc(doc(as('dudu'), 'alexaCodes/123456'), code('dudu', 'h1')));
+  await assertFails(getDoc(doc(as('dudu'), 'alexaCodes/123456')));
+  await assertFails(setDoc(doc(as('fremd'), 'alexaCodes/222222'), code('fremd', 'h1')));
+  await assertFails(setDoc(doc(as('dudu'), 'alexaCodes/333333'), code('bubu', 'h1')));
+  await assertFails(setDoc(doc(as('dudu'), 'alexaCodes/abc'), code('dudu', 'h1')));
+  await assertFails(setDoc(
+    doc(as('dudu'), 'alexaCodes/444444'),
+    code('dudu', 'h1', Timestamp.fromMillis(Date.now() + 24 * 3600 * 1000)),
+  ));
+});
+
+test('Alexa: Verbindung sehen und trennen nur die Person selbst', async () => {
+  await assertSucceeds(getDocs(query(collection(as('dudu'), 'alexaLinks'), where('uid', '==', 'dudu'))));
+  await assertFails(getDoc(doc(as('bubu'), 'alexaLinks/amzn-dudu')));
+  await assertFails(setDoc(doc(as('dudu'), 'alexaLinks/amzn-x'), { householdId: 'h1', uid: 'dudu' }));
+  await assertFails(deleteDoc(doc(as('bubu'), 'alexaLinks/amzn-dudu')));
+  await assertSucceeds(deleteDoc(doc(as('dudu'), 'alexaLinks/amzn-dudu')));
 });
 
 test('Pflanzenfotos: nur Mitglieder, nur Bilder bis knapp 1 MB', async () => {

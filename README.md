@@ -11,7 +11,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 | Bereich | Funktionen |
 | --- | --- |
 | Start | Wetter für euren Ort oder automatisch per Standort, mit Detailansicht (Stunden, 7 Tage, Wind, UV), Aktien/ETFs, fällige Aufgaben, nächste Termine, Einkaufsliste, Essen heute, Finanzen, Erinnerungen, Jahrestag |
-| Einkauf | Gemeinsame Liste, live auf beiden Handys |
+| Einkauf | Gemeinsame Liste, live auf beiden Handys, per Alexa befüllbar |
 | Haushalt | Aufgaben mit Zuständigkeit, Fälligkeit, Wiederholung und Punkten pro Monat |
 | Kalender | Monatsansicht, Termine mit Uhrzeit, Geburtstage und Jahrestage jährlich |
 | Finanzen | Ausgaben, Wer-schuldet-wem, Ausgleichen, Kategorien pro Monat, Fixkosten |
@@ -82,6 +82,40 @@ die App automatisch ab. Noch nicht abgeglichene Einträge der Einkaufsliste sind
 
 Jede Person kann beides unter **Mehr → Einstellungen** abschalten.
 
+## Alexa
+
+„Alexa, sag Bubu Dudu, setz Milch auf die Liste“ trägt Milch in die Einkaufsliste ein,
+„Alexa, frag Bubu Dudu, was auf der Liste steht“ liest sie vor. Der Satz ohne „Bubu Dudu“
+geht leider nicht: „Alexa, setz Milch auf die Einkaufsliste“ landet immer in Amazons eigener
+Liste, und die darf seit 2024 keine andere App mehr lesen.
+
+Der Skill läuft als Entwickler-Skill auf allen Echos des eigenen Amazon-Kontos, ohne
+Veröffentlichung im Skill-Store. Die Antworten kommen von der Cloud Function `alexa` in `functions/`.
+Einmalig einrichten:
+
+1. Die Funktion muss von außen erreichbar sein. In der
+   [Cloud Shell](https://console.cloud.google.com/?cloudshell=true&project=bubududu-15f3f) einmal:
+   ```sh
+   gcloud run services add-iam-policy-binding alexa --region=europe-west3 \
+     --member=allUsers --role=roles/run.invoker --project=bubududu-15f3f
+   ```
+   (Das darf das GitHub-Dienstkonto nicht selbst. Die Funktion prüft trotzdem bei jeder Anfrage,
+   dass sie wirklich von Amazon kommt.)
+2. [developer.amazon.com/alexa/console/ask](https://developer.amazon.com/alexa/console/ask) mit dem
+   Amazon-Konto öffnen, mit dem auch die Echos laufen → **Create Skill**: Name `Bubu Dudu`,
+   Sprache **German (DE)**, Typ **Other → Custom**, Hosting **Provision your own**, Vorlage **Start from Scratch**.
+3. Links **Interaction Model → JSON Editor**, den Inhalt von
+   [`alexa/interaction-model.de-DE.json`](alexa/interaction-model.de-DE.json) einfügen → **Save** → **Build skill**.
+4. Links **Endpoint** → **HTTPS**, Default Region:
+   `https://europe-west3-bubududu-15f3f.cloudfunctions.net/alexa`, darunter
+   „My development endpoint is a sub-domain of a domain that has a wildcard certificate …“ → **Save**.
+5. Oben **Test** → „Skill testing is enabled in“ auf **Development** stellen.
+6. In der App **Mehr → Einstellungen → Alexa verbinden** antippen und den angezeigten Satz zum Echo sagen
+   („Alexa, sag Bubu Dudu, Code …“). Jede Person, die den Skill nutzt, verbindet sich so einmal.
+
+Optional nur den eigenen Skill zulassen: die Skill-ID (amzn1.ask.skill…) als
+`ALEXA_SKILL_ID=…` in `functions/.env` eintragen.
+
 ## Google-Kalender
 
 Unter **Mehr → Einstellungen → Kalender** „Termine in meinen Google-Kalender“ einschalten und den
@@ -148,3 +182,5 @@ Datenstruktur in Firestore:
 | `households/{id}/locations/{uid}` | geteilter Standort (nur von der Person selbst schreibbar) |
 | `households/{id}/health`, `healthProfiles` im Haushalt | gemeinsame Gesundheitseinträge, Geburtsdatum |
 | `users/{uid}/health` | private Gesundheitseinträge (nur die Person selbst) |
+| `alexaCodes/{code}` | Code zum Verbinden mit Alexa, 15 Minuten gültig |
+| `alexaLinks/{alexaUser}` | verbundenes Amazon-Konto → Person und Haushalt (schreibt nur die Cloud Function) |

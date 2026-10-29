@@ -13,6 +13,8 @@ import 'offline.dart';
 ///   households/{id}                     Name, Mitglieder, Einladungscode
 ///   households/{id}/shoppingItems/{id}  Einträge der Einkaufsliste
 ///   households/{id}/recipes/{id}        gemeinsame Rezepte
+///   alexaCodes/{code}                   Code zum Verbinden mit Alexa
+///   alexaLinks/{alexaUser}              verbundenes Amazon-Konto (functions/)
 class HouseholdRepository {
   HouseholdRepository(this._db);
 
@@ -212,6 +214,45 @@ class HouseholdRepository {
 
   Future<void> deleteRecipe(String householdId, String recipeId) =>
       writeInBackground(_recipes(householdId).doc(recipeId).delete());
+
+  /// Legt einen sechsstelligen Code an, den man Alexa sagt, um den Skill
+  /// "Bubu Dudu" mit diesem Haushalt zu verbinden. 15 Minuten gültig.
+  /// Braucht Netz, weil Alexa den Code sofort auf dem Server sucht.
+  Future<String> createAlexaCode(String householdId, String uid) async {
+    final rnd = Random.secure();
+    for (var attempt = 0; attempt < 5; attempt++) {
+      final code = (100000 + rnd.nextInt(900000)).toString();
+      try {
+        // Ein schon vergebener Code wäre ein Update und wird abgelehnt.
+        await _db.doc('alexaCodes/$code').set({
+          'uid': uid,
+          'householdId': householdId,
+          'expiresAt': Timestamp.fromDate(
+            DateTime.now().add(const Duration(minutes: 15)),
+          ),
+        });
+        return code;
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied') rethrow;
+      }
+    }
+    throw StateError('Gerade kein Code möglich. Versuch es gleich nochmal.');
+  }
+
+  /// Wie viele Amazon-Konten mit dieser Person verbunden sind.
+  Stream<int> watchAlexaLinks(String uid) => _db
+      .collection('alexaLinks')
+      .where('uid', isEqualTo: uid)
+      .snapshots()
+      .map((s) => s.docs.length);
+
+  Future<void> unlinkAlexa(String uid) async {
+    final links = await _db
+        .collection('alexaLinks')
+        .where('uid', isEqualTo: uid)
+        .get();
+    await Future.wait(links.docs.map((d) => d.reference.delete()));
+  }
 
   // Ohne 0/O und 1/I, damit der Code leicht abzutippen ist.
   static String _randomCode() {

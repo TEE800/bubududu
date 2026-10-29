@@ -129,4 +129,25 @@ void main() {
     await repo.deleteRecipe('h1', recipes.single.id);
     expect(await repo.watchRecipes('h1').first, isEmpty);
   });
+
+  test('Alexa: Code anlegen, Verbindung sehen und trennen', () async {
+    final code = await repo.createAlexaCode('h1', 'kevin');
+    expect(code, matches(RegExp(r'^[0-9]{6}$')));
+    final saved = (await db.doc('alexaCodes/$code').get()).data()!;
+    expect(saved['uid'], 'kevin');
+    expect(saved['householdId'], 'h1');
+
+    expect(await repo.watchAlexaLinks('kevin').first, 0);
+    // Das Einlösen macht die Cloud Function.
+    await db.doc('alexaLinks/amzn1').set({'uid': 'kevin', 'householdId': 'h1'});
+    await db.doc('alexaLinks/amzn2').set({
+      'uid': 'fritzi',
+      'householdId': 'h1',
+    });
+    expect(await repo.watchAlexaLinks('kevin').first, 1);
+
+    await repo.unlinkAlexa('kevin');
+    expect(await repo.watchAlexaLinks('kevin').first, 0);
+    expect((await db.doc('alexaLinks/amzn2').get()).exists, isTrue);
+  });
 }

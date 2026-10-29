@@ -37,3 +37,10 @@ final recipesProvider = StreamProvider.family<List<Recipe>, String>(
   (ref, householdId) =>
       ref.watch(householdRepositoryProvider).watchRecipes(householdId),
 );
+
+/// Anzahl der mit der eigenen Person verbundenen Alexa-Konten.
+final alexaLinksProvider = StreamProvider<int>((ref) {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return Stream.value(0);
+  return ref.watch(householdRepositoryProvider).watchAlexaLinks(user.uid);
+});
