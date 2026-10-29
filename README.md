@@ -84,7 +84,7 @@ Jede Person kann beides unter **Mehr → Einstellungen** abschalten.
 
 ## Alexa
 
-„Alexa, sag Bubu Dudu, setz Milch auf die Liste“ trägt Milch in die Einkaufsliste ein,
+„Alexa, sag Bubu Dudu, setz Milch auf die Liste“ (oder kurz „Alexa, sag Bubu Dudu, Milch“) trägt Milch in die Einkaufsliste ein,
 „Alexa, frag Bubu Dudu, was auf der Liste steht“ liest sie vor. Der Satz ohne „Bubu Dudu“
 geht leider nicht: „Alexa, setz Milch auf die Einkaufsliste“ landet immer in Amazons eigener
 Liste, und die darf seit 2024 keine andere App mehr lesen.

@@ -71,6 +71,13 @@ test('Was schon offen draufsteht, kommt nicht doppelt', async () => {
   assert.equal(speech(r), 'Brot steht jetzt auf der Liste. Milch stand schon drauf.');
 });
 
+test('Nur das Wort reicht auch', async () => {
+  const store = fakeStore();
+  const r = await handleAlexa(intent('QuickAddIntent', { item: 'milch' }), store);
+  assert.deepEqual(store.added[0].texts, ['Milch']);
+  assert.equal(speech(r), 'Milch steht jetzt auf der Liste.');
+});
+
 test('Liste vorlesen', async () => {
   assert.equal(
     speech(await handleAlexa(intent('ReadListIntent'), fakeStore())),

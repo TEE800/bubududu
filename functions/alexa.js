@@ -103,7 +103,9 @@ export async function handleAlexa(envelope, store) {
         end: false,
         reprompt: EXAMPLE,
       });
-    case 'AddItemIntent': {
+    case 'AddItemIntent':
+    // Nur das Wort, z. B. "Alexa, sag Bubu Dudu, Milch".
+    case 'QuickAddIntent': {
       const wanted = parseItems(slot('item'));
       if (wanted.length === 0) {
         return say('Was soll auf die Liste?', { end: false, reprompt: EXAMPLE });
