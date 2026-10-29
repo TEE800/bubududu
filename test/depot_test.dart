@@ -147,6 +147,207 @@ void main() {
       expect(p.lastPrice, 1200);
     });
 
+    test('Minus in shares gilt, auch bei Stornos und Kapitalmaßnahmen', () {
+      String r(
+        String t,
+        String cat,
+        String type,
+        String isin,
+        String n,
+        String amount,
+      ) => row(t, cat, type, 'Papier $isin', isin, n, '10.00', amount);
+      final csv = [
+        header,
+        r('2025-01-01T10:00:00Z', 'TRADING', 'BUY', 'A', '10', '-100.00'),
+        // Gratisaktien/Split als Aus- und Einbuchung ohne Geld
+        r(
+          '2025-02-01T10:00:00Z',
+          'CORPORATE_ACTION',
+          'STOCK_SPLIT',
+          'A',
+          '-10',
+          '',
+        ),
+        r(
+          '2025-02-01T10:00:01Z',
+          'CORPORATE_ACTION',
+          'STOCK_SPLIT',
+          'A',
+          '22',
+          '',
+        ),
+        r('2025-01-01T10:00:00Z', 'TRADING', 'BUY', 'B', '2', '-20.00'),
+        r(
+          '2025-01-02T10:00:00Z',
+          'TRADING',
+          'BUY_CANCELLED',
+          'B',
+          '-2',
+          '20.00',
+        ),
+        r('2025-01-01T10:00:00Z', 'TRADING', 'BUY', 'C', '100', '-99.00'),
+        r(
+          '2025-03-01T10:00:00Z',
+          'CORPORATE_ACTION',
+          'FINAL_MATURITY',
+          'C',
+          '-100',
+          '',
+        ),
+        r(
+          '2025-03-02T10:00:00Z',
+          'CORPORATE_ACTION',
+          'FINAL_MATURITY_CANCELLED',
+          'C',
+          '100',
+          '',
+        ),
+      ].join('\n');
+      final byIsin = {for (final p in parseTradeRepublicCsv(csv)) p.isin: p};
+      expect(byIsin.keys, unorderedEquals(['A', 'C']));
+      expect(byIsin['A']!.shares, 22);
+      expect(byIsin['A']!.invested, 100);
+      expect(byIsin['C']!.shares, 100);
+      expect(byIsin['C']!.invested, 99);
+    });
+
+    test('Gratisaktien mit Storno und Umtausch in neue ISIN', () {
+      String r(
+        String t,
+        String cat,
+        String type,
+        String name,
+        String isin,
+        String n,
+        String price,
+        String amount, {
+        String fee = '',
+      }) => row(t, cat, type, name, isin, n, price, amount, fee: fee);
+      final csv = [
+        header,
+        // Wie im echten Export: neueste zuerst, neue ISIN vor der alten.
+        r(
+          '2026-08-19T07:46:02.978Z',
+          'TRADING',
+          'SELL',
+          'Auto AG',
+          'CN01',
+          '-282.3529200000',
+          '0.9858',
+          '278.34',
+          fee: '-1.00',
+        ),
+        r(
+          '2026-07-02T11:21:37.697Z',
+          'CORPORATE_ACTION',
+          'EXCHANGE',
+          'Öl Holdings',
+          'US02',
+          '21.0504100000',
+          '',
+          '',
+        ),
+        r(
+          '2026-07-02T11:21:37.697Z',
+          'CORPORATE_ACTION',
+          'EXCHANGE',
+          'Öl',
+          'US01',
+          '-21.0504100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-08-13T05:22:45.443Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE',
+          'Auto AG',
+          'CN01',
+          '75.2941100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-08-13T05:09:14.774Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE_CANCELLED',
+          'Auto AG',
+          'CN01',
+          '-75.2941100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-07-30T06:25:35.095Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE',
+          'Auto AG',
+          'CN01',
+          '112.9411700000',
+          '',
+          '',
+        ),
+        r(
+          '2025-07-30T06:25:21.431Z',
+          'CORPORATE_ACTION',
+          'BONUS_ISSUE',
+          'Auto AG',
+          'CN01',
+          '75.2941100000',
+          '',
+          '',
+        ),
+        r(
+          '2025-04-29T14:22:51.744Z',
+          'TRADING',
+          'BUY',
+          'Auto AG',
+          'CN01',
+          '90.0000000000',
+          '4.25',
+          '-382.50',
+          fee: '-1.00',
+        ),
+        r(
+          '2025-04-29T14:22:51.744Z',
+          'TRADING',
+          'BUY',
+          'Auto AG',
+          'CN01',
+          '4.1176400000',
+          '4.25',
+          '-17.50',
+        ),
+        r(
+          '2025-04-24T16:09:32.670Z',
+          'TRADING',
+          'BUY',
+          'Öl',
+          'US01',
+          '20.0000000000',
+          '95.02',
+          '-190.04',
+          fee: '-1.00',
+        ),
+        r(
+          '2025-04-24T16:09:32.667Z',
+          'TRADING',
+          'BUY',
+          'Öl',
+          'US01',
+          '1.0504100000',
+          '95.02',
+          '-9.98',
+        ),
+      ].join('\n');
+      final p = parseTradeRepublicCsv(csv);
+      // Auto AG ist komplett verkauft, die alte Öl-ISIN ist umgetauscht.
+      expect(p.map((x) => x.isin), ['US02']);
+      expect(p.single.shares, closeTo(21.05041, 1e-9));
+      expect(p.single.invested, closeTo(201.02, 1e-9));
+      expect(p.single.lastPrice, closeTo(95.02, 1e-9));
+    });
+
     test('lehnt fremde Dateien ab', () {
       expect(
         () => parseTradeRepublicCsv('Datum,Betrag\n2025-01-01,3'),
@@ -197,6 +398,50 @@ void main() {
       expect(find.text('470,00 €'), findsOneWidget);
       expect(find.text('Heute +40,00 €'), findsOneWidget);
       expect(find.textContaining('Nur du siehst dein Depot'), findsOneWidget);
+    });
+
+    testWidgets('zeigt Gewinn je Position in Euro und Prozent', (tester) async {
+      await h.pumpPage(tester, const DepotScreen());
+      // SAP: 440 € Wert, 300 € bezahlt
+      expect(find.text('+140,00 € · +46,67 %'), findsOneWidget);
+      expect(find.text('+0,00 € · +0,00 %'), findsOneWidget);
+      expect(find.textContaining('heute +10,00 %'), findsOneWidget);
+    });
+
+    testWidgets('sucht fehlende Kürzel automatisch über die ISIN', (
+      tester,
+    ) async {
+      await h.db.doc('users/kevin').set({
+        'depot': {
+          'positions': [
+            const DepotPosition(
+              isin: 'DE0007164600',
+              name: 'SAP SE',
+              shares: 1,
+              invested: 100,
+              lastPrice: 100,
+            ).toMap(),
+          ],
+        },
+      });
+      await h.pumpPage(tester, const DepotScreen());
+      await tester.pumpAndSettle();
+      final saved = (await h.db.doc('users/kevin').get()).data()!['depot'];
+      expect((saved['positions'] as List).single['symbol'], 'SAP.DE');
+      expect(find.text('220,00 €'), findsWidgets);
+    });
+
+    testWidgets('Kürzel-Knopf trägt den besten Treffer ein', (tester) async {
+      await h.pumpPage(tester, const DepotScreen());
+      await tester.tap(find.text('Ohne Kurs AG'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ISIN (freiwillig)'),
+        'DE0007164600',
+      );
+      await tester.tap(find.text('Kürzel automatisch suchen'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'SAP.DE'), findsOneWidget);
     });
 
     testWidgets('Kachel auf der Startseite', (tester) async {
