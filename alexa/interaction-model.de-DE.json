@@ -68,9 +68,12 @@
             }
           ],
           "samples": [
+            "{code}",
             "code {code}",
             "der code ist {code}",
+            "der code lautet {code}",
             "mein code ist {code}",
+            "code ist {code}",
             "verbinde mit code {code}",
             "verbinden mit code {code}",
             "mit code {code} verbinden"

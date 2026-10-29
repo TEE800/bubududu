@@ -112,7 +112,7 @@ Einmalig einrichten:
    „My development endpoint is a sub-domain of a domain that has a wildcard certificate …“ → **Save**.
 5. Oben **Test** → „Skill testing is enabled in“ auf **Development** stellen.
 6. In der App **Mehr → Einstellungen → Alexa verbinden** antippen und den angezeigten Satz zum Echo sagen
-   („Alexa, sag Bubu Dudu, Code …“). Jede Person, die den Skill nutzt, verbindet sich so einmal.
+   („Alexa, öffne Bubu Dudu“ und dann die sechs Ziffern). Jede Person, die den Skill nutzt, verbindet sich so einmal.
 
 Optional nur den eigenen Skill zulassen: die Skill-ID (amzn1.ask.skill…) als
 `ALEXA_SKILL_ID=…` in `functions/.env` eintragen.

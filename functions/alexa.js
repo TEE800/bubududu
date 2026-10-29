@@ -41,7 +41,8 @@ const say = (text, { end = true, reprompt } = {}) => ({
 
 const NOT_LINKED =
   'Ich bin noch nicht mit eurer App verbunden. Öffne in der App Mehr, Einstellungen, ' +
-  'Alexa verbinden, und sag mir dann den Code, zum Beispiel: Code eins zwei drei vier fünf sechs.';
+  'Alexa verbinden, und sag mir dann einfach die sechs Ziffern.';
+const ASK_CODE = 'Wie lautet der Code aus der App?';
 
 const EXAMPLE = 'Sag zum Beispiel: setz Milch auf die Liste. Oder: was steht auf der Liste?';
 
@@ -73,9 +74,9 @@ export async function handleAlexa(envelope, store) {
     case 'LinkIntent': {
       const code = String(slot('code') ?? '').replace(/\D/g, '');
       if (code.length !== 6) {
-        return say('Der Code hat sechs Ziffern. Sag zum Beispiel: Code eins zwei drei vier fünf sechs.', {
+        return say('Der Code hat sechs Ziffern. Sag sie bitte nochmal.', {
           end: false,
-          reprompt: 'Wie lautet der Code aus der App?',
+          reprompt: ASK_CODE,
         });
       }
       const result = await store.redeemCode(code, alexaUser);
@@ -85,12 +86,16 @@ export async function handleAlexa(envelope, store) {
       if (result === 'blocked') {
         return say('Es wurden zu viele falsche Codes gesagt. Ich nehme gerade keine Codes mehr an.');
       }
-      return say('Den Code kenne ich nicht oder er ist abgelaufen. Hol dir in der App einen neuen.');
+      return say('Den Code kenne ich nicht oder er ist abgelaufen. Hol dir in der App einen neuen und sag ihn mir.', {
+        end: false,
+        reprompt: ASK_CODE,
+      });
     }
   }
 
   const link = await store.getLink(alexaUser);
-  if (!link) return say(NOT_LINKED);
+  // Sitzung offen lassen, damit man direkt danach nur die Zahl sagen kann.
+  if (!link) return say(NOT_LINKED, { end: false, reprompt: ASK_CODE });
 
   switch (intent) {
     case 'LaunchRequest':
