@@ -147,6 +147,70 @@ void main() {
       expect(p.lastPrice, 1200);
     });
 
+    test('Minus in shares gilt, auch bei Stornos und Kapitalmaßnahmen', () {
+      String r(
+        String t,
+        String cat,
+        String type,
+        String isin,
+        String n,
+        String amount,
+      ) => row(t, cat, type, 'Papier $isin', isin, n, '10.00', amount);
+      final csv = [
+        header,
+        r('2025-01-01T10:00:00Z', 'TRADING', 'BUY', 'A', '10', '-100.00'),
+        // Gratisaktien/Split als Aus- und Einbuchung ohne Geld
+        r(
+          '2025-02-01T10:00:00Z',
+          'CORPORATE_ACTION',
+          'STOCK_SPLIT',
+          'A',
+          '-10',
+          '',
+        ),
+        r(
+          '2025-02-01T10:00:01Z',
+          'CORPORATE_ACTION',
+          'STOCK_SPLIT',
+          'A',
+          '22',
+          '',
+        ),
+        r('2025-01-01T10:00:00Z', 'TRADING', 'BUY', 'B', '2', '-20.00'),
+        r(
+          '2025-01-02T10:00:00Z',
+          'TRADING',
+          'BUY_CANCELLED',
+          'B',
+          '-2',
+          '20.00',
+        ),
+        r('2025-01-01T10:00:00Z', 'TRADING', 'BUY', 'C', '100', '-99.00'),
+        r(
+          '2025-03-01T10:00:00Z',
+          'CORPORATE_ACTION',
+          'FINAL_MATURITY',
+          'C',
+          '-100',
+          '',
+        ),
+        r(
+          '2025-03-02T10:00:00Z',
+          'CORPORATE_ACTION',
+          'FINAL_MATURITY_CANCELLED',
+          'C',
+          '100',
+          '',
+        ),
+      ].join('\n');
+      final byIsin = {for (final p in parseTradeRepublicCsv(csv)) p.isin: p};
+      expect(byIsin.keys, unorderedEquals(['A', 'C']));
+      expect(byIsin['A']!.shares, 22);
+      expect(byIsin['A']!.invested, 100);
+      expect(byIsin['C']!.shares, 100);
+      expect(byIsin['C']!.invested, 99);
+    });
+
     test('lehnt fremde Dateien ab', () {
       expect(
         () => parseTradeRepublicCsv('Datum,Betrag\n2025-01-01,3'),

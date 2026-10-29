@@ -124,13 +124,19 @@ double? _number(String raw, {required bool german}) {
   return double.tryParse(s);
 }
 
-/// Zeilen, die Stücke aus dem Depot nehmen (Verkauf, Ausbuchung, Übertrag weg).
-bool _isOutgoing(String type) =>
-    type.contains('SELL') ||
-    type.contains('WRITE_OFF') ||
-    type.contains('OUTBOUND') ||
-    type.contains('OUTGOING') ||
-    type.contains('REMOVAL');
+/// Zeilen, die Stücke aus dem Depot nehmen (Verkauf, Ausbuchung, Fälligkeit,
+/// Übertrag weg). Nur nötig, wenn "shares" dort ohne Minus steht.
+bool _isOutgoing(String type) => const [
+  'SELL',
+  'WRITE_OFF',
+  'OUTBOUND',
+  'OUTGOING',
+  'REMOVAL',
+  'MATURITY',
+  'REDEMPTION',
+  'EXPIR',
+  'DELIST',
+].any(type.contains);
 
 /// In CASH-Zeilen (z. B. Dividenden) steht in "shares" nur der Bestand zur Info.
 bool _changesShares(String category) => category != 'CASH';
@@ -189,27 +195,35 @@ List<DepotPosition> parseTradeRepublicCsv(String text) {
     if (isin.isEmpty || qty == null || qty == 0) continue;
 
     var type = at(r, iType).toUpperCase();
-    var sign = 1.0;
-    if (type.endsWith('_CANCELLED')) {
-      sign = -1;
+    final cancelled = type.endsWith('_CANCELLED');
+    if (cancelled) {
       type = type.substring(0, type.length - '_CANCELLED'.length);
     }
-    final direction = qty < 0 || _isOutgoing(type) ? -1.0 : 1.0;
-    final delta = qty.abs() * direction * sign;
+    final outgoing = _isOutgoing(type);
+    // Ein Minus in "shares" gilt immer (Stücke gehen raus). Ohne Minus
+    // entscheidet die Art der Buchung; ein Storno dreht sie um.
+    final double delta;
+    if (qty < 0) {
+      delta = qty;
+    } else {
+      delta = (outgoing != cancelled) ? -qty : qty;
+    }
+    final amount = _number(at(r, iAmount), german: german) ?? 0;
     final cost =
-        (_number(at(r, iAmount), german: german) ?? 0).abs() +
-        (_number(at(r, iFee), german: german) ?? 0).abs();
+        amount.abs() + (_number(at(r, iFee), german: german) ?? 0).abs();
 
     final held = shares[isin] ?? 0;
     final paid = invested[isin] ?? 0;
     if (delta > 0) {
       invested[isin] = paid + cost;
-    } else if (direction > 0) {
+    } else if (cancelled && !outgoing) {
       // Storno eines Kaufs: Kaufbetrag wieder abziehen.
       invested[isin] = paid - cost;
-    } else if (held > 0) {
+    } else if (held > 0 && (category == 'TRADING' || amount != 0)) {
       invested[isin] = paid * ((held + delta) / held).clamp(0, 1);
     }
+    // Kapitalmaßnahmen ohne Geldfluss (z. B. Split: alte Stücke raus, neue
+    // rein) lassen den Einstandswert stehen.
     shares[isin] = held + delta;
 
     final name = at(r, iName);
@@ -217,7 +231,9 @@ List<DepotPosition> parseTradeRepublicCsv(String text) {
     final assetClass = at(r, iClass);
     if (assetClass.isNotEmpty) classes[isin] = assetClass;
     final price = _number(at(r, iPrice), german: german);
-    if (price != null && price > 0) prices[isin] = price;
+    if (category == 'TRADING' && price != null && price > 0) {
+      prices[isin] = price;
+    }
   }
 
   final result = [
