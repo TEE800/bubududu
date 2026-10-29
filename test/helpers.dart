@@ -63,6 +63,7 @@ Future<void> pumpPage(
   Widget page, {
   MockFirebaseAuth? auth,
   ThemeData? theme,
+  String uid = 'kevin',
   List<Override> overrides = const [],
 }) async {
   // Typische Handygröße, damit Überläufe auffallen.
@@ -74,13 +75,10 @@ Future<void> pumpPage(
       overrides: [
         firestoreProvider.overrideWithValue(db),
         householdRepositoryProvider.overrideWithValue(HouseholdRepository(db)),
-        uidProvider.overrideWithValue('kevin'),
+        uidProvider.overrideWithValue(uid),
         firebaseAuthProvider.overrideWithValue(
           auth ??
-              MockFirebaseAuth(
-                signedIn: true,
-                mockUser: MockUser(uid: 'kevin'),
-              ),
+              MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: uid)),
         ),
         httpClientProvider.overrideWithValue(mockHttp),
         notificationsProvider.overrideWithValue(NoNotifications()),

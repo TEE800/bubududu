@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../features/care.dart';
 import '../features/contracts.dart';
+import '../features/depot.dart';
 import '../features/finance.dart';
 import '../features/health.dart';
 import '../features/meals.dart';
@@ -23,6 +24,11 @@ final moreEntries = <MoreEntry>[
     label: 'Finanzen',
     icon: Icons.euro,
     page: (id) => FinanceScreen(householdId: id),
+  ),
+  (
+    label: 'Mein Depot',
+    icon: Icons.account_balance_wallet_outlined,
+    page: (_) => const DepotScreen(),
   ),
   (
     label: 'Essensplan',

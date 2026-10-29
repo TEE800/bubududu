@@ -41,7 +41,10 @@ final _startsLikeIngredient = RegExp(
 );
 
 final _bullet = RegExp(r'^[•·\-–*◦▪●o]\s+');
-final _stepNumber = RegExp(r'^(\d+[.)]|schritt\s+\d+)\s*', caseSensitive: false);
+final _stepNumber = RegExp(
+  r'^(\d+[.)]|schritt\s+\d+)\s*',
+  caseSensitive: false,
+);
 
 RecipeDraft parseRecipeText(String text) {
   final lines = [

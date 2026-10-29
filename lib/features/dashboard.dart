@@ -13,6 +13,7 @@ import '../widgets/mascots.dart';
 import 'calendar.dart';
 import 'care.dart';
 import 'contracts.dart';
+import 'depot.dart';
 import 'finance.dart';
 import 'health.dart';
 import 'location.dart';
@@ -86,6 +87,7 @@ class DashboardScreen extends ConsumerWidget {
           ref.invalidate(weatherProvider);
           ref.invalidate(devicePlaceProvider);
           ref.invalidate(stockQuoteProvider);
+          ref.invalidate(euroQuoteProvider);
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
@@ -112,6 +114,7 @@ class DashboardScreen extends ConsumerWidget {
             _MoneyCard(householdId: householdId, onOpenPage: onOpenPage),
             _RemindersCard(householdId: householdId, onOpenPage: onOpenPage),
             _HealthCard(householdId: householdId, onOpenPage: onOpenPage),
+            _DepotCard(onOpenPage: onOpenPage),
             _StocksCard(householdId: householdId),
             TogetherCard(householdId: householdId),
             _LocationCard(householdId: householdId, onOpenPage: onOpenPage),
@@ -518,6 +521,39 @@ class _RemindersCard extends ConsumerWidget {
   }
 }
 
+/// Nur für mich: Wert meines importierten Depots.
+class _DepotCard extends ConsumerWidget {
+  const _DepotCard({required this.onOpenPage});
+
+  final void Function(Widget page) onOpenPage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final positions = ref.watch(depotProvider).value?.positions ?? const [];
+    if (positions.isEmpty) return const SizedBox.shrink();
+    final total = ref.watch(depotTotalProvider);
+    return _DashCard(
+      icon: Icons.account_balance_wallet_outlined,
+      title: 'Mein Depot',
+      onTap: () => onOpenPage(const DepotScreen()),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              formatEuro(total.value),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          Text(
+            'Heute ${formatSigned(total.dayChange)}',
+            style: TextStyle(color: gainColor(context, total.dayChange)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StocksCard extends ConsumerWidget {
   const _StocksCard({required this.householdId});
 
@@ -747,6 +783,15 @@ class _DashboardSettingsScreenState
             ),
           const SizedBox(height: 32),
           Text('Aktien & ETFs', style: Theme.of(context).textTheme.titleMedium),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: const Text('Mein Depot (Trade Republic)'),
+            subtitle: const Text('Export importieren, nur für dich sichtbar'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const DepotScreen())),
+          ),
           for (final s in symbols)
             ListTile(
               contentPadding: EdgeInsets.zero,
