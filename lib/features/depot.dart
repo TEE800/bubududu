@@ -14,6 +14,7 @@ import '../util/dates.dart';
 import '../util/trade_republic.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
+import 'depot_charts.dart';
 
 /// Mein Depot: Positionen aus dem Trade-Republic-Transaktionsexport.
 /// Liegt privat in users/{uid}.depot = {positions: [...], importedAt}
@@ -192,6 +193,7 @@ class DepotScreen extends ConsumerStatefulWidget {
 class _DepotScreenState extends ConsumerState<DepotScreen> {
   bool _busy = false;
   bool _symbolsChecked = false;
+  bool _charts = false;
 
   /// Einmal pro Öffnen: fehlende Kürzel automatisch über die ISIN suchen.
   Future<void> _fillSymbols(List<DepotPosition> positions) async {
@@ -353,8 +355,30 @@ class _DepotScreenState extends ConsumerState<DepotScreen> {
                   child: _TotalSummary(total: total),
                 ),
               ),
-              for (final p in positions)
-                _PositionTile(position: p, onTap: () => _edit(p)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.list),
+                      label: Text('Positionen'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.insert_chart_outlined),
+                      label: Text('Grafiken'),
+                    ),
+                  ],
+                  selected: {_charts},
+                  onSelectionChanged: (s) => setState(() => _charts = s.first),
+                ),
+              ),
+              if (_charts)
+                DepotCharts(positions: positions)
+              else
+                for (final p in positions)
+                  _PositionTile(position: p, onTap: () => _edit(p)),
             ],
             const SizedBox(height: 16),
             Padding(
@@ -435,8 +459,10 @@ class _PositionTile extends ConsumerWidget {
             '${formatShares(p.shares)} Stück',
             if (change != null)
               'heute ${formatPercent(change)}'
-            else if (!v.live)
-              'kein Live-Kurs',
+            else if (p.symbol == null)
+              'kein Kürzel gefunden'
+            else if (quote?.hasError ?? false)
+              'Kurs für ${p.symbol} nicht abrufbar',
           ].join(' · '),
         ),
         trailing: Column(

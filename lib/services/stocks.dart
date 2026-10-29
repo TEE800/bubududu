@@ -26,7 +26,31 @@ class StockQuote {
       previousClose == 0 ? 0 : (price - previousClose) / previousClose * 100;
 }
 
-const _headers = {'User-Agent': 'Mozilla/5.0 (BubuDudu-App)'};
+// Yahoo lehnt Anfragen ohne gewöhnliche Browser-Kennung gern ab.
+const _headers = {
+  'User-Agent':
+      'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36',
+  'Accept': 'application/json',
+};
+
+/// Fragt query1 und bei Fehler query2 an (Yahoo drosselt die Server einzeln).
+Future<http.Response?> _yahooGet(
+  http.Client client,
+  String path,
+  Map<String, String> params,
+) async {
+  http.Response? last;
+  for (final host in ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']) {
+    try {
+      last = await client.get(Uri.https(host, path, params), headers: _headers);
+      if (last.statusCode == 200) return last;
+    } catch (_) {
+      // nächsten Server versuchen
+    }
+  }
+  return last;
+}
 
 StockQuote parseQuote(String symbol, Map<String, dynamic> json) {
   final result =
@@ -49,13 +73,14 @@ final stockQuoteProvider = FutureProvider.family<StockQuote, String>((
   ref,
   symbol,
 ) async {
-  final uri = Uri.https(
-    'query1.finance.yahoo.com',
+  final res = await _yahooGet(
+    ref.watch(httpClientProvider),
     '/v8/finance/chart/$symbol',
     {'range': '1d', 'interval': '1d'},
   );
-  final res = await ref.watch(httpClientProvider).get(uri, headers: _headers);
-  if (res.statusCode != 200) throw Exception('Kurs nicht verfügbar');
+  if (res == null || res.statusCode != 200) {
+    throw Exception('Kurs nicht verfügbar');
+  }
   return parseQuote(symbol, jsonDecode(res.body) as Map<String, dynamic>);
 });
 
@@ -65,13 +90,12 @@ Future<List<StockSearchResult>> searchStocks(
   http.Client client,
   String query,
 ) async {
-  final uri = Uri.https('query1.finance.yahoo.com', '/v1/finance/search', {
+  final res = await _yahooGet(client, '/v1/finance/search', {
     'q': query,
     'quotesCount': '8',
     'newsCount': '0',
   });
-  final res = await client.get(uri, headers: _headers);
-  if (res.statusCode != 200) return const [];
+  if (res == null || res.statusCode != 200) return const [];
   final quotes =
       (jsonDecode(res.body) as Map<String, dynamic>)['quotes'] as List? ??
       const [];
@@ -85,3 +109,50 @@ Future<List<StockSearchResult>> searchStocks(
         ),
   ];
 }
+
+/// Schlusskurse eines Wertpapiers, z. B. range '1mo', '6mo', '1y'.
+typedef PriceHistory = ({
+  List<DateTime> days,
+  List<double> closes,
+  String currency,
+});
+
+PriceHistory parseHistory(Map<String, dynamic> json) {
+  final result =
+      (json['chart']['result'] as List).first as Map<String, dynamic>;
+  final meta = result['meta'] as Map<String, dynamic>;
+  final stamps = (result['timestamp'] as List? ?? const []).cast<num>();
+  final quote =
+      ((result['indicators'] as Map?)?['quote'] as List?)?.firstOrNull as Map?;
+  final closes = (quote?['close'] as List? ?? const []);
+  final days = <DateTime>[];
+  final values = <double>[];
+  for (var i = 0; i < stamps.length && i < closes.length; i++) {
+    final c = closes[i];
+    if (c is! num) continue;
+    final t = DateTime.fromMillisecondsSinceEpoch(stamps[i].toInt() * 1000);
+    days.add(DateTime(t.year, t.month, t.day));
+    values.add(c.toDouble());
+  }
+  return (
+    days: days,
+    closes: values,
+    currency: meta['currency'] as String? ?? '',
+  );
+}
+
+final priceHistoryProvider =
+    FutureProvider.family<PriceHistory, ({String symbol, String range})>((
+      ref,
+      key,
+    ) async {
+      final res = await _yahooGet(
+        ref.watch(httpClientProvider),
+        '/v8/finance/chart/${key.symbol}',
+        {'range': key.range, 'interval': '1d'},
+      );
+      if (res == null || res.statusCode != 200) {
+        throw Exception('Verlauf nicht verfügbar');
+      }
+      return parseHistory(jsonDecode(res.body) as Map<String, dynamic>);
+    });
