@@ -22,7 +22,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 | Verträge | Kosten, Zahlungsrhythmus, Kündigungsfristen mit Hinweis |
 | Reisen | Reisen mit gemeinsamer Packliste |
 | Gesundheit | Arzttermine, Impfungen und Vorsorge pro Person, Empfehlungen nach Alter, private Einträge |
-| Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus |
+| Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus; Pflanzenprofile mit Standort, Düngen, Fotoverlauf und Zeitraffer |
 | Wir | Zusammen seit, Date-Ideen, Bucket-Liste, Ziele, Standort teilen (Karte oder Satellit), Einladungscode |
 
 Standort teilen ist freiwillig: Jede Person schaltet es für sich ein, solange es läuft,

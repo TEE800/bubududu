@@ -50,8 +50,18 @@ service cloud.firestore {
         allow write: if isMember(householdId) && request.auth.uid == uid;
       }
 
+      // Pflanzenfotos liegen verkleinert direkt im Dokument (max. 1 MB).
+      match /plantPhotos/{photoId} {
+        allow read, delete: if isMember(householdId);
+        allow create, update: if isMember(householdId) &&
+          request.resource.data.plantId is string &&
+          request.resource.data.image is bytes &&
+          request.resource.data.image.size() <= 950000;
+      }
+
       match /{collection}/{docId} {
-        allow read, write: if collection != 'locations' && isMember(householdId);
+        allow read, write: if !(collection in ['locations', 'plantPhotos']) &&
+          isMember(householdId);
       }
     }
   }

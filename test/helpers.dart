@@ -11,6 +11,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -62,6 +63,7 @@ Future<void> pumpPage(
   Widget page, {
   MockFirebaseAuth? auth,
   ThemeData? theme,
+  List<Override> overrides = const [],
 }) async {
   // Typische Handygröße, damit Überläufe auffallen.
   tester.view.physicalSize = const Size(360 * 3, 740 * 3);
@@ -82,6 +84,7 @@ Future<void> pumpPage(
         ),
         httpClientProvider.overrideWithValue(mockHttp),
         notificationsProvider.overrideWithValue(NoNotifications()),
+        ...overrides,
       ],
       child: MaterialApp(
         theme: theme,
