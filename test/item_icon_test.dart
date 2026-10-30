@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:bubududu/screens/shopping_screen.dart';
 import 'package:bubududu/widgets/item_icon.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -55,9 +54,8 @@ void main() {
         const ShoppingScreen(householdId: 'h1'),
         overrides: [
           itemPhotoPickerProvider.overrideWithValue(
-            (source) async => source == ImageSource.gallery
-                ? Uint8List.fromList(_png)
-                : null,
+            (source) async =>
+                source == ImageSource.gallery ? Uint8List.fromList(_png) : null,
           ),
         ],
       );

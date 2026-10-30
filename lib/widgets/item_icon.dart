@@ -296,7 +296,7 @@ class ItemAvatar extends ConsumerWidget {
                 cacheWidth: (size * 3).round(),
               )
             : ColoredBox(
-                color: scheme.primaryContainer,
+                color: scheme.surfaceContainerHighest,
                 child: Center(
                   child: Text(
                     itemSymbol(name),
