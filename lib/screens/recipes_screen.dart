@@ -61,10 +61,10 @@ class RecipesScreen extends ConsumerWidget {
         ),
       ),
     );
-    String? text;
+    List<OcrLine>? lines;
     Object? error;
     try {
-      text = await scanRecipeText(source);
+      lines = await scanRecipeText(source);
     } catch (e) {
       error = e;
     }
@@ -76,9 +76,9 @@ class RecipesScreen extends ConsumerWidget {
       );
       return;
     }
-    if (text == null) return;
-    final draft = parseRecipeText(text);
-    if (draft.title.isEmpty) {
+    if (lines == null) return;
+    final draft = parseRecipeLines(lines);
+    if (draft.isEmpty) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Auf dem Bild wurde kein Text erkannt.')),
       );

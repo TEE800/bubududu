@@ -11,10 +11,23 @@ class RecipeDraft {
   final String title;
   final List<String> ingredients;
   final String instructions;
+
+  bool get isEmpty =>
+      title.isEmpty && ingredients.isEmpty && instructions.isEmpty;
+}
+
+/// Eine erkannte Textzeile. [height] ist die Schrifthöhe in Pixeln (0, wenn
+/// unbekannt); damit wird die große Überschrift als Name erkannt.
+class OcrLine {
+  const OcrLine(this.text, {this.height = 0});
+
+  final String text;
+  final double height;
 }
 
 final _ingredientsHeading = RegExp(
-  r'^(zutaten|ingredients|einkaufsliste)\b',
+  r'^((haupt)?zutaten|ingredients|einkaufsliste|rezept\s+für\b|'
+  r'für\s+\d+\s+(portionen|personen|stück)|\d+\s+(portionen|personen)\b)',
   caseSensitive: false,
 );
 final _instructionsHeading = RegExp(
@@ -40,62 +53,206 @@ final _startsLikeIngredient = RegExp(
   caseSensitive: false,
 );
 
-final _bullet = RegExp(r'^[•·\-–*◦▪●o]\s+');
+final _bullet = RegExp(r'^[•·\-–*◦▪●○■□☐◻✓✔o]\s*(?=\S)');
 final _stepNumber = RegExp(
   r'^(\d+[.)]|schritt\s+\d+)\s*',
   caseSensitive: false,
 );
 
-RecipeDraft parseRecipeText(String text) {
-  final lines = [
-    for (final raw in text.split('\n'))
-      if (raw.trim().isNotEmpty) raw.trim().replaceFirst(_bullet, ''),
+// --- Störtext aus Screenshots und Webseiten --------------------------------
+
+/// Uhrzeit oder Akkustand aus der Statusleiste, z. B. "08:45" oder "87 %".
+final _statusBar = RegExp(
+  r'^(\d{1,2}:\d{2}(\s*(uhr|am|pm))?|\d{1,3}\s?%)$',
+  caseSensitive: false,
+);
+
+/// Bedienelemente von Instagram, Blogs usw.
+const _uiWords = {
+  'all posts',
+  'posts',
+  'post',
+  'follow',
+  'following',
+  'folgen',
+  'gefolgt',
+  'abonnieren',
+  'share',
+  'teilen',
+  'speichern',
+  'save',
+  'saved',
+  'like',
+  'likes',
+  'gefällt mir',
+  'kommentieren',
+  'comment',
+  'comments',
+  'kommentare',
+  'reply',
+  'antworten',
+  'more',
+  'mehr',
+  'mehr anzeigen',
+  'see more',
+  'see translation',
+  'übersetzung anzeigen',
+  'home',
+  'startseite',
+  'menu',
+  'menü',
+  'suche',
+  'search',
+  'back',
+  'zurück',
+  'instagram',
+  'tiktok',
+  'pinterest',
+  'facebook',
+  'youtube',
+  'werbung',
+  'anzeige',
+  'gesponsert',
+  'sponsored',
+  'newsletter',
+  'jump to recipe',
+  'zum rezept',
+  'rezept drucken',
+  'print recipe',
+  'drucken',
+  'print',
+  'reels',
+  'stories',
+  'markiert',
+  'nachricht',
+  'message',
+  'original audio',
+  'originalton',
+};
+
+final _uiPatterns = RegExp(
+  r'^([@#]|https?://|www\.)|\.(com|de|at|ch)(/|$)|'
+  r'^[\d.,]+\s?(k|tsd\.?|mio\.?)?\s+(likes?|gefällt|kommentare|comments|views|aufrufe|follower)|'
+  r'^gefällt\s|^vor\s\d+\s(sek|min|std|stunden?|tag|tagen|woche|wochen)\b|'
+  r'\b\d+\s(seconds?|minutes?|hours?|days?|weeks?)\sago$|'
+  r'^(zubereitungszeit|vorbereitungszeit|arbeitszeit|kochzeit|backzeit|'
+  r'ruhezeit|gesamtzeit|schwierigkeit|kalorien)\b',
+  caseSensitive: false,
+);
+
+final _letter = RegExp(r'[A-Za-zÄÖÜäöüß]');
+final _digitOrFraction = RegExp(r'[\d½¼¾⅓⅔]');
+
+bool _isNoise(String l) {
+  if (_statusBar.hasMatch(l)) return true;
+  // Einzelne Buchstaben und Symbole (Icons, abgeschnittene Wörter).
+  if (!_digitOrFraction.hasMatch(l) && _letter.allMatches(l).length < 2) {
+    return true;
+  }
+  return _uiWords.contains(l.toLowerCase()) || _uiPatterns.hasMatch(l);
+}
+
+/// Zwischenüberschrift innerhalb der Zutaten, z. B. "MARINADE" oder
+/// "Für die Soße:". Sie gehört nicht auf die Einkaufsliste.
+bool _isSubHeading(String l, {required bool allowCaps}) {
+  if (l.contains(_digitOrFraction) || l.length > 40) return false;
+  if (l.endsWith(':')) return true;
+  if (RegExp(r'^für\s+(den|die|das)\s', caseSensitive: false).hasMatch(l)) {
+    return true;
+  }
+  return allowCaps && _isAllCaps(l);
+}
+
+bool _isAllCaps(String l) =>
+    _letter.allMatches(l).length >= 3 && l == l.toUpperCase();
+
+/// Typische Lesefehler der Texterkennung in Mengenangaben beheben.
+String _cleanIngredient(String l) {
+  var s = l;
+  // Aufzählungszeichen oder Kästchen werden oft als einzelner Buchstabe
+  // gelesen: "F 30 g Mehl", "S1TL Paprika", "R%TL Pfeffer".
+  s = s.replaceFirst(RegExp(r'^[A-Za-z]\s?(?=[\d%½¼¾⅓⅔])'), '');
+  // "½" wird gern als "%" erkannt ("%TL", "1%TL").
+  s = s.replaceFirstMapped(
+    RegExp(r'^(\d?)\s?%(?=\s?[A-Za-zÄÖÜäöü])'),
+    (m) => '${m[1]}½',
+  );
+  // Leerzeichen zwischen Menge und Wort: "1Spitzkohl", "250g", "½TL".
+  s = s.replaceFirstMapped(
+    RegExp(r'^(\d+(?:[.,/]\d+)?[½¼¾⅓⅔]?|[½¼¾⅓⅔])(?=[A-WYZa-wyzÄÖÜäöüß])'),
+    (m) => '${m[1]} ',
+  );
+  return s.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+RecipeDraft parseRecipeText(String text) =>
+    parseRecipeLines([for (final l in text.split('\n')) OcrLine(l)]);
+
+RecipeDraft parseRecipeLines(List<OcrLine> raw) {
+  final lines = <OcrLine>[
+    for (final r in raw)
+      if (r.text.trim().replaceFirst(_bullet, '').trim() case final t
+          when t.isNotEmpty && !_isNoise(t))
+        OcrLine(t, height: r.height),
   ];
   if (lines.isEmpty) {
     return const RecipeDraft(title: '', ingredients: [], instructions: '');
   }
+  final texts = [for (final l in lines) l.text];
 
-  final ingIdx = lines.indexWhere(_isIngredientsHeading);
-  final instIdx = lines.indexWhere(_isInstructionsHeading);
+  final ingIdx = texts.indexWhere(_isIngredientsHeading);
+  final instIdx = texts.indexWhere(_isInstructionsHeading);
 
-  // Name: erste Zeile, die keine Überschrift ist.
-  final titleIdx = lines.indexWhere(
-    (l) => !_isIngredientsHeading(l) && !_isInstructionsHeading(l),
-  );
-  final title = titleIdx == -1 ? '' : lines[titleIdx];
+  // Alles vor der ersten Überschrift ist Kopfbereich mit dem Namen. Ohne
+  // Überschriften endet er vor der ersten Zeile, die mit einer Menge beginnt.
+  final headings = [ingIdx, instIdx].where((i) => i != -1);
+  var headEnd = headings.isEmpty
+      ? texts.length
+      : headings.reduce((a, b) => a < b ? a : b);
+  if (ingIdx == -1 && instIdx != 0) {
+    final limit = instIdx == -1 ? texts.length : instIdx;
+    final firstQty = texts.indexWhere(
+      (l) => RegExp('^$_number').hasMatch(_cleanIngredient(l)),
+      1,
+    );
+    headEnd = firstQty != -1 && firstQty < limit ? firstQty : 1;
+  }
+  final title = _pickTitle(lines.sublist(0, headEnd));
 
   List<String> ingredientLines;
   List<String> instructionLines;
 
   if (ingIdx != -1 && instIdx > ingIdx) {
-    ingredientLines = lines.sublist(ingIdx + 1, instIdx);
-    instructionLines = lines.sublist(instIdx + 1);
+    ingredientLines = texts.sublist(ingIdx + 1, instIdx);
+    instructionLines = texts.sublist(instIdx + 1);
   } else if (instIdx != -1 && ingIdx > instIdx) {
-    instructionLines = lines.sublist(instIdx + 1, ingIdx);
-    ingredientLines = lines.sublist(ingIdx + 1);
+    instructionLines = texts.sublist(instIdx + 1, ingIdx);
+    ingredientLines = texts.sublist(ingIdx + 1);
   } else {
     // Ohne passende Überschriften: kurze Zeilen und Zeilen mit Mengen sind
     // Zutaten, ganze Sätze gehören zur Zubereitung.
-    final start = ingIdx != -1
-        ? ingIdx + 1
-        : instIdx != -1
-        ? instIdx + 1
-        : titleIdx + 1;
+    final start = ingIdx != -1 ? ingIdx + 1 : headEnd;
+    final end = instIdx > start ? instIdx : texts.length;
     ingredientLines = [];
     instructionLines = [];
-    for (final line in lines.skip(start)) {
-      if (instIdx == -1 && _looksLikeIngredient(line)) {
+    for (final line in texts.sublist(start, end)) {
+      if (_looksLikeIngredient(_cleanIngredient(line))) {
         ingredientLines.add(line);
       } else {
         instructionLines.add(line);
       }
     }
+    if (instIdx != -1 && instIdx >= start) {
+      instructionLines.addAll(texts.sublist(instIdx + 1));
+    }
   }
 
   return RecipeDraft(
     title: title,
-    ingredients: _mergeQuantities(ingredientLines),
-    instructions: _joinParagraphs(instructionLines),
+    ingredients: _mergeQuantities(_tidyIngredients(ingredientLines)),
+    instructions: _joinParagraphs(
+      instructionLines.where((l) => !_isInstructionsHeading(l)).toList(),
+    ),
   );
 }
 
@@ -109,6 +266,59 @@ bool _looksLikeIngredient(String l) =>
     l.length <= 50 &&
     (_startsLikeIngredient.hasMatch(l) ||
         (l.length <= 35 && !RegExp(r'[.!?]$').hasMatch(l)));
+
+/// Name aus dem Kopfbereich: die Zeile mit der größten Schrift (samt
+/// gleich großer Nachbarzeilen, falls der Name umbricht). Ohne Schrifthöhen
+/// die erste Zeile, die wie ein Name aussieht.
+String _pickTitle(List<OcrLine> head) {
+  final candidates = [
+    for (final l in head)
+      if (!_quantityOnly.hasMatch(l.text) &&
+          !RegExp(r'[.!?]$').hasMatch(l.text))
+        l,
+  ];
+  if (candidates.isEmpty) {
+    return head.isEmpty ? '' : head.first.text;
+  }
+
+  String tidy(String t) => t.replaceFirst(RegExp(r'\s*:$'), '');
+
+  final maxHeight = candidates
+      .map((l) => l.height)
+      .reduce((a, b) => a > b ? a : b);
+  if (maxHeight > 0) {
+    final top = candidates.indexWhere((l) => l.height == maxHeight);
+    bool big(int i) => candidates[i].height >= maxHeight * 0.8;
+    var from = top, to = top;
+    while (from > 0 && big(from - 1)) {
+      from--;
+    }
+    while (to < candidates.length - 1 && big(to + 1)) {
+      to++;
+    }
+    return tidy(candidates.sublist(from, to + 1).map((l) => l.text).join(' '));
+  }
+  final named = candidates.firstWhere(
+    (l) => RegExp(r'^[A-ZÄÖÜ0-9]').hasMatch(l.text),
+    orElse: () => candidates.first,
+  );
+  return tidy(named.text);
+}
+
+/// Überschriften entfernen und Lesefehler korrigieren.
+List<String> _tidyIngredients(List<String> lines) {
+  // Steht alles in Großbuchstaben, sind Großbuchstaben kein Zeichen für
+  // eine Zwischenüberschrift.
+  final caps = lines.where(_isAllCaps).length;
+  final allowCaps = caps * 2 < lines.length;
+  return [
+    for (final l in lines)
+      if (!_isIngredientsHeading(l) &&
+          !_isInstructionsHeading(l) &&
+          !_isSubHeading(l, allowCaps: allowCaps))
+        _cleanIngredient(l),
+  ];
+}
 
 /// Fügt allein stehende Mengen mit der zugehörigen Zutat zusammen. Steht
 /// erst eine Spalte Mengen und dann eine Spalte Zutaten da, werden beide
