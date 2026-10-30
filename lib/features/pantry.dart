@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,7 +24,24 @@ enum StockLevel {
       StockLevel.full;
 }
 
+/// Wie oft etwas von selbst verbraucht wird: pro Tag oder pro Woche.
+enum AutoUnit {
+  day('pro Tag', 1),
+  week('pro Woche', 7);
+
+  const AutoUnit(this.label, this.days);
+  final String label;
+  final int days;
+
+  static AutoUnit parse(String? name) =>
+      AutoUnit.values.where((u) => u.name == name).firstOrNull ?? AutoUnit.day;
+}
+
 /// households/{id}/pantry: was zu Hause ist.
+///
+/// Optional mit Nutzungen: [uses] insgesamt, [usesLeft] übrig zum Zeitpunkt
+/// [usesAt]. Bei automatischem Verbrauch ([autoAmount] pro [autoUnit]) wird
+/// ab [usesAt] laufend abgezogen, ohne dass jemand etwas speichern muss.
 class PantryItem {
   const PantryItem({
     required this.id,
@@ -29,6 +49,11 @@ class PantryItem {
     required this.level,
     required this.bestBefore,
     required this.place,
+    this.uses,
+    this.usesLeft,
+    this.usesAt,
+    this.autoAmount = 0,
+    this.autoUnit = AutoUnit.day,
   });
 
   final String id;
@@ -36,6 +61,55 @@ class PantryItem {
   final StockLevel level;
   final DateTime? bestBefore;
   final String place;
+  final int? uses;
+  final double? usesLeft;
+  final DateTime? usesAt;
+  final double autoAmount;
+  final AutoUnit autoUnit;
+
+  bool get countsUses => (uses ?? 0) > 0;
+  bool get autoUses => countsUses && autoAmount > 0;
+  double get perDay => autoUses ? autoAmount / autoUnit.days : 0;
+
+  /// Genaue Nutzungen übrig, mit automatischem Verbrauch bis [now].
+  double usesLeftAt(DateTime now) {
+    final left = usesLeft ?? (uses ?? 0).toDouble();
+    if (perDay <= 0 || usesAt == null) return math.max(0, left);
+    final days = math.max(0, now.difference(usesAt!).inMinutes) / 1440;
+    return math.max(0, left - perDay * days);
+  }
+
+  /// Zum Anzeigen: angebrochene Nutzungen zählen noch mit.
+  int remaining(DateTime now) => (usesLeftAt(now) - 1e-9).ceil();
+
+  /// Bestand: bei gezählten Nutzungen aus dem, was übrig ist.
+  StockLevel levelAt(DateTime now) =>
+      countsUses ? levelForUses(usesLeftAt(now), uses!) : level;
+
+  /// Wie viel noch da ist, von 0 (leer) bis 1 (voll); zum Sortieren.
+  /// Ohne Nutzungen grob nach Bestand.
+  double fractionLeft(DateTime now) => countsUses
+      ? math.min(1, usesLeftAt(now) / uses!)
+      : switch (level) {
+          StockLevel.full => 1,
+          StockLevel.low => 0.2,
+          StockLevel.empty => 0,
+        };
+
+  /// Wann es bei automatischem Verbrauch ungefähr leer ist.
+  DateTime? emptyOn(DateTime now) {
+    if (perDay <= 0) return null;
+    final left = usesLeftAt(now);
+    if (left <= 0) return null;
+    return now.add(Duration(minutes: (left / perDay * 1440).round()));
+  }
+
+  /// Felder für einen neuen Stand von [left] Nutzungen.
+  Map<String, dynamic> usesUpdate(double left, DateTime now) => {
+    'usesLeft': math.max(0.0, left),
+    'usesAt': Timestamp.fromDate(now),
+    'level': levelForUses(left, uses ?? 0).name,
+  };
 
   /// Läuft in den nächsten 3 Tagen ab oder ist schon abgelaufen.
   bool expiresSoon(DateTime now) =>
@@ -47,8 +121,31 @@ class PantryItem {
     level: StockLevel.parse(d.data['level'] as String?),
     bestBefore: readDate(d.data['bestBefore']),
     place: d.data['place'] as String? ?? '',
+    uses: (d.data['uses'] as num?)?.toInt(),
+    usesLeft: (d.data['usesLeft'] as num?)?.toDouble(),
+    usesAt: readDate(d.data['usesAt']),
+    autoAmount: (d.data['autoAmount'] as num?)?.toDouble() ?? 0,
+    autoUnit: AutoUnit.parse(d.data['autoUnit'] as String?),
   );
 }
+
+/// Leer bei 0, knapp ab einem Fünftel (mindestens bei 1 übrig).
+StockLevel levelForUses(double left, int total) {
+  if (left <= 1e-9) return StockLevel.empty;
+  if (left <= math.max(1, total * 0.2)) return StockLevel.low;
+  return StockLevel.full;
+}
+
+/// "noch 9 von 10", "noch 1 von 10".
+String usesText(int left, int total) => 'noch $left von $total';
+
+/// Zahl mit Komma oder Punkt, z. B. "0,5".
+double? parseAmount(String text) =>
+    double.tryParse(text.trim().replaceAll(',', '.'));
+
+String formatAmount(double v) => v == v.roundToDouble()
+    ? v.toInt().toString()
+    : v.toString().replaceAll('.', ',');
 
 /// Namen der fehlenden Vorräte, die noch nicht offen auf der Einkaufsliste
 /// stehen ([onList]: kleingeschriebene Einträge), ohne Doppelte.
@@ -65,15 +162,15 @@ final pantryProvider = Provider.family<AsyncValue<List<PantryItem>>, String>(
       .watch(
         collectionProvider((householdId: householdId, collection: 'pantry')),
       )
-      .whenData(
-        (docs) => docs.map(PantryItem.fromDoc).toList()
-          ..sort((a, b) {
-            final c = b.level.index.compareTo(a.level.index);
-            return c != 0
-                ? c
-                : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-          }),
-      ),
+      .whenData((docs) {
+        final now = DateTime.now();
+        return docs.map(PantryItem.fromDoc).toList()..sort((a, b) {
+          final c = b.levelAt(now).index.compareTo(a.levelAt(now).index);
+          return c != 0
+              ? c
+              : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+      }),
 );
 
 class PantryScreen extends ConsumerWidget {
@@ -104,7 +201,9 @@ class PantryScreen extends ConsumerWidget {
                 'einem Tipp auf die Einkaufsliste.',
           );
         }
-        final missing = list.where((i) => i.level != StockLevel.full).toList();
+        final missing = list
+            .where((i) => i.levelAt(now) != StockLevel.full)
+            .toList();
         return ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
@@ -144,46 +243,108 @@ class PantryScreen extends ConsumerWidget {
                   },
                 ),
               ),
-            for (final i in list)
-              ListTile(
-                leading: Icon(
-                  switch (i.level) {
-                    StockLevel.full => Icons.check_circle_outline,
-                    StockLevel.low => Icons.hourglass_bottom,
-                    StockLevel.empty => Icons.remove_circle_outline,
-                  },
-                  color: i.level == StockLevel.full
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.error,
-                ),
-                title: Text(i.name),
-                subtitle: Text(
-                  [
-                    i.level.label,
-                    if (i.place.isNotEmpty) i.place,
-                    if (i.bestBefore != null)
-                      'MHD ${formatShortDate(i.bestBefore!)}',
-                  ].join(' · '),
-                  style: i.expiresSoon(now)
-                      ? TextStyle(color: Theme.of(context).colorScheme.error)
-                      : null,
-                ),
-                trailing: PopupMenuButton<StockLevel>(
-                  tooltip: 'Bestand ändern',
-                  icon: const Icon(Icons.tune),
-                  onSelected: (l) =>
-                      store.update('pantry', i.id, {'level': l.name}),
-                  itemBuilder: (_) => [
-                    for (final l in StockLevel.values)
-                      PopupMenuItem(value: l, child: Text(l.label)),
-                  ],
-                ),
-                onTap: () => _open(context, i),
-              ),
+            for (final i in list) _tile(context, store, i, now),
           ],
         );
       }),
     );
+  }
+
+  Widget _tile(
+    BuildContext context,
+    HouseholdStore store,
+    PantryItem i,
+    DateTime now,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final level = i.levelAt(now);
+    final emptyOn = i.emptyOn(now);
+    return ListTile(
+      leading: Icon(switch (level) {
+        StockLevel.full => Icons.check_circle_outline,
+        StockLevel.low => Icons.hourglass_bottom,
+        StockLevel.empty => Icons.remove_circle_outline,
+      }, color: level == StockLevel.full ? scheme.primary : scheme.error),
+      title: Text(i.name),
+      subtitle: Text(
+        [
+          if (i.countsUses)
+            usesText(i.remaining(now), i.uses!)
+          else
+            level.label,
+          if (i.autoUses)
+            emptyOn == null
+                ? 'automatisch'
+                : 'reicht bis ca. ${formatShortDate(emptyOn)}',
+          if (i.place.isNotEmpty) i.place,
+          if (i.bestBefore != null) 'MHD ${formatShortDate(i.bestBefore!)}',
+        ].join(' · '),
+        style: i.expiresSoon(now) ? TextStyle(color: scheme.error) : null,
+      ),
+      trailing: i.countsUses
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton.filledTonal(
+                  tooltip: 'Einmal benutzt',
+                  icon: const Icon(Icons.remove),
+                  onPressed: i.remaining(now) == 0
+                      ? null
+                      : () => _useOnce(context, store, i),
+                ),
+                PopupMenuButton<void>(
+                  tooltip: 'Bestand ändern',
+                  icon: const Icon(Icons.tune),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      onTap: () => store.update(
+                        'pantry',
+                        i.id,
+                        i.usesUpdate(i.uses!.toDouble(), DateTime.now()),
+                      ),
+                      child: Text('Wieder voll (${i.uses})'),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : PopupMenuButton<StockLevel>(
+              tooltip: 'Bestand ändern',
+              icon: const Icon(Icons.tune),
+              onSelected: (l) =>
+                  store.update('pantry', i.id, {'level': l.name}),
+              itemBuilder: (_) => [
+                for (final l in StockLevel.values)
+                  PopupMenuItem(value: l, child: Text(l.label)),
+              ],
+            ),
+      onTap: () => _open(context, i),
+    );
+  }
+
+  /// Eine Nutzung abziehen, mit Rückgängig.
+  void _useOnce(BuildContext context, HouseholdStore store, PantryItem i) {
+    final now = DateTime.now();
+    final before = i.usesLeftAt(now);
+    final after = math.max(0.0, before - 1);
+    store.update('pantry', i.id, i.usesUpdate(after, now));
+    final left = (after - 1e-9).ceil();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            left == 0
+                ? '${i.name} ist aufgebraucht.'
+                : '${i.name}: ${usesText(left, i.uses!)}',
+          ),
+          action: SnackBarAction(
+            label: 'Rückgängig',
+            onPressed: () =>
+                store.update('pantry', i.id, i.usesUpdate(before, now)),
+          ),
+        ),
+      );
   }
 
   void _open(BuildContext context, PantryItem? i) => Navigator.of(context).push(
@@ -209,16 +370,89 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
   late StockLevel _level = widget.item?.level ?? StockLevel.full;
   late DateTime? _bestBefore = widget.item?.bestBefore;
 
+  late bool _countUses = widget.item?.countsUses ?? false;
+  late final _uses = TextEditingController(text: widget.item?.uses?.toString());
+  late final String _leftAtStart = widget.item?.countsUses == true
+      ? widget.item!.remaining(DateTime.now()).toString()
+      : '';
+  late final _left = TextEditingController(text: _leftAtStart);
+  late bool _auto = widget.item?.autoUses ?? false;
+  late final _autoAmount = TextEditingController(
+    text: widget.item?.autoUses == true
+        ? formatAmount(widget.item!.autoAmount)
+        : '1',
+  );
+  late AutoUnit _autoUnit = widget.item?.autoUnit ?? AutoUnit.day;
+
   @override
   void dispose() {
     _name.dispose();
     _place.dispose();
+    _uses.dispose();
+    _left.dispose();
+    _autoAmount.dispose();
     super.dispose();
+  }
+
+  /// Felder für Nutzungen, oder null bei einer Eingabe, die nicht passt.
+  Map<String, dynamic>? _usesFields() {
+    if (!_countUses) {
+      return {'uses': null, 'usesLeft': null, 'usesAt': null, 'autoAmount': 0};
+    }
+    final total = int.tryParse(_uses.text.trim());
+    if (total == null || total <= 0) {
+      showError(
+        context,
+        'Bitte gib an, wie viele Nutzungen es insgesamt sind.',
+      );
+      return null;
+    }
+    final now = DateTime.now();
+    final i = widget.item;
+    // Unverändert: genauen Stand behalten, sonst die Eingabe (leer = voll).
+    final double left;
+    if (i != null && i.countsUses && _left.text.trim() == _leftAtStart) {
+      left = math.min(i.usesLeftAt(now), total.toDouble());
+    } else if (_left.text.trim().isEmpty) {
+      left = total.toDouble();
+    } else {
+      final l = int.tryParse(_left.text.trim());
+      if (l == null || l < 0) {
+        showError(
+          context,
+          'Bitte gib an, wie viele Nutzungen noch übrig sind.',
+        );
+        return null;
+      }
+      left = math.min(l, total).toDouble();
+    }
+    var amount = 0.0;
+    if (_auto) {
+      final a = parseAmount(_autoAmount.text);
+      if (a == null || a <= 0) {
+        showError(
+          context,
+          'Bitte gib an, wie viel automatisch verbraucht wird.',
+        );
+        return null;
+      }
+      amount = a;
+    }
+    return {
+      'uses': total,
+      'usesLeft': left,
+      'usesAt': Timestamp.fromDate(now),
+      'autoAmount': amount,
+      'autoUnit': _autoUnit.name,
+      'level': levelForUses(left, total).name,
+    };
   }
 
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) return showError(context, 'Bitte gib einen Namen ein.');
+    final uses = _usesFields();
+    if (uses == null) return;
     await ref.read(storeProvider(widget.householdId)).save(
       'pantry',
       widget.item?.id,
@@ -227,6 +461,7 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
         'place': _place.text.trim(),
         'level': _level.name,
         'bestBefore': writeDate(_bestBefore),
+        ...uses,
       },
     );
     if (mounted) Navigator.of(context).pop();
@@ -267,19 +502,74 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
           ),
           textCapitalization: TextCapitalization.sentences,
         ),
-        SegmentedButton<StockLevel>(
-          segments: [
-            for (final l in StockLevel.values)
-              ButtonSegment(value: l, label: Text(l.label)),
-          ],
-          selected: {_level},
-          onSelectionChanged: (s) => setState(() => _level = s.first),
-        ),
+        if (!_countUses)
+          SegmentedButton<StockLevel>(
+            segments: [
+              for (final l in StockLevel.values)
+                ButtonSegment(value: l, label: Text(l.label)),
+            ],
+            selected: {_level},
+            onSelectionChanged: (s) => setState(() => _level = s.first),
+          ),
         DateField(
           label: 'Mindestens haltbar bis (optional)',
           value: _bestBefore,
           onChanged: (v) => setState(() => _bestBefore = v),
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Nutzungen zählen'),
+          subtitle: const Text('z. B. Badezusatz für 10 Bäder'),
+          value: _countUses,
+          onChanged: (v) => setState(() => _countUses = v),
+        ),
+        if (_countUses) ...[
+          TextField(
+            controller: _uses,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Nutzungen insgesamt',
+              hintText: 'z. B. 10',
+            ),
+          ),
+          TextField(
+            controller: _left,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Davon noch übrig',
+              hintText: 'leer = alle',
+            ),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Automatisch verbrauchen'),
+            subtitle: const Text(
+              'Für Sachen, die ihr ständig nutzt, z. B. Seife',
+            ),
+            value: _auto,
+            onChanged: (v) => setState(() => _auto = v),
+          ),
+          if (_auto) ...[
+            TextField(
+              controller: _autoAmount,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Wie viele Nutzungen?',
+                hintText: 'z. B. 1 oder 0,5',
+              ),
+            ),
+            SegmentedButton<AutoUnit>(
+              segments: [
+                for (final u in AutoUnit.values)
+                  ButtonSegment(value: u, label: Text(u.label)),
+              ],
+              selected: {_autoUnit},
+              onSelectionChanged: (s) => setState(() => _autoUnit = s.first),
+            ),
+          ],
+        ],
       ],
     );
   }

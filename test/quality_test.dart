@@ -133,6 +133,61 @@ void main() {
       );
     });
 
+    test('Vorräte: Nutzungen werden automatisch weniger', () {
+      final start = DateTime(2026, 11, 1, 8);
+      final soap = PantryItem(
+        id: 's',
+        name: 'Seife',
+        level: StockLevel.full,
+        bestBefore: null,
+        place: '',
+        uses: 30,
+        usesLeft: 30,
+        usesAt: start,
+        autoAmount: 1,
+      );
+      expect(soap.remaining(start), 30);
+      expect(soap.remaining(start.add(const Duration(hours: 12))), 30);
+      expect(soap.remaining(start.add(const Duration(days: 10))), 20);
+      expect(soap.levelAt(start.add(const Duration(days: 25))), StockLevel.low);
+      expect(
+        soap.levelAt(start.add(const Duration(days: 40))),
+        StockLevel.empty,
+      );
+      expect(soap.emptyOn(start), start.add(const Duration(days: 30)));
+
+      final weekly = PantryItem(
+        id: 'w',
+        name: 'Spülmittel',
+        level: StockLevel.full,
+        bestBefore: null,
+        place: '',
+        uses: 10,
+        usesLeft: 10,
+        usesAt: start,
+        autoAmount: 2,
+        autoUnit: AutoUnit.week,
+      );
+      expect(weekly.remaining(start.add(const Duration(days: 14))), 6);
+      expect(weekly.fractionLeft(start.add(const Duration(days: 14))), 0.6);
+
+      final bath = PantryItem(
+        id: 'b',
+        name: 'Badezusatz',
+        level: StockLevel.full,
+        bestBefore: null,
+        place: '',
+        uses: 10,
+        usesLeft: 2,
+        usesAt: start,
+      );
+      expect(bath.remaining(start.add(const Duration(days: 99))), 2);
+      expect(bath.levelAt(start), StockLevel.low);
+      expect(parseAmount('0,5'), 0.5);
+      expect(formatAmount(0.5), '0,5');
+      expect(formatAmount(2), '2');
+    });
+
     test('Verträge: abgelaufene Fristen rutschen nach unten', () {
       Contract c(String name, DateTime? by) => Contract(
         id: name,
