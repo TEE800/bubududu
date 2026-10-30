@@ -98,7 +98,7 @@ List<Reminder> computeReminders({
       'task:${t.id}:${t.due!.toIso8601String()}',
       _at(t.due!, 9),
       'Heute dran: ${t.title}',
-      t.points == 1 ? '1 Punkt' : '${t.points} Punkte',
+      'Abhaken nicht vergessen.',
     );
   }
 

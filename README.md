@@ -12,7 +12,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 | --- | --- |
 | Start | Wetter für euren Ort oder automatisch per Standort, mit Detailansicht (Stunden, 7 Tage, Wind, UV), Aktien/ETFs, fällige Aufgaben, nächste Termine, Einkaufsliste, Essen heute, Finanzen, Erinnerungen, Jahrestag |
 | Einkauf | Gemeinsame Liste, live auf beiden Handys, per Alexa befüllbar |
-| Haushalt | Aufgaben mit Zuständigkeit, Fälligkeit, Wiederholung und Punkten pro Monat |
+| Haushalt | Aufgaben mit Zuständigkeit, Fälligkeit und Wiederholung |
 | Kalender | Monatsansicht, Termine mit Uhrzeit, Geburtstage und Jahrestage jährlich |
 | Finanzen | Ausgaben, Wer-schuldet-wem, Ausgleichen, Kategorien pro Monat, Fixkosten |
 | Rezepte | Rezeptsammlung, Zutaten auf die Einkaufsliste |
@@ -176,7 +176,7 @@ Datenstruktur in Firestore:
 | `households/{id}` | Name, Mitglieder, Einladungscode |
 | `households/{id}/shoppingItems/{id}` | Einträge der Einkaufsliste |
 | `households/{id}/recipes`, `mealPlan/{yyyy-mm-dd}` | Rezepte, Essensplan |
-| `households/{id}/tasks`, `taskLog` | Aufgaben und wer was erledigt hat |
+| `households/{id}/tasks` | Haushaltsaufgaben |
 | `households/{id}/events` | Termine |
 | `households/{id}/expenses`, `contracts` | Ausgaben, Verträge |
 | `households/{id}/notes`, `pantry`, `trips`, `care`, `ideas` | weitere Bereiche |

@@ -4,7 +4,6 @@ import 'package:bubududu/features/care.dart';
 import 'package:bubududu/features/contracts.dart';
 import 'package:bubududu/features/meals.dart';
 import 'package:bubududu/features/pantry.dart';
-import 'package:bubududu/features/tasks.dart';
 import 'package:bubududu/features/trips.dart';
 import 'package:bubududu/notifications/reminders.dart';
 import 'package:bubududu/screens/household_screen.dart';
@@ -13,7 +12,6 @@ import 'package:bubududu/theme.dart';
 import 'package:bubududu/util/dates.dart';
 import 'package:bubududu/util/money.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -180,31 +178,6 @@ void main() {
         'Rom',
       ]);
     });
-  });
-
-  test('Abhaken zurücknehmen nimmt auch die Punkte zurück', () async {
-    final store = HouseholdStore(FakeFirebaseFirestore(), 'h1', 'kevin');
-    await store.col('tasks').doc('t1').set({
-      'title': 'Müll',
-      'points': 2,
-      'done': false,
-    });
-    Future<HouseTask> task() async => HouseTask.fromDoc(
-      Doc('t1', (await store.col('tasks').doc('t1').get()).data()!),
-    );
-    Future<List<Doc>> log() async => [
-      for (final d in (await store.col('taskLog').get()).docs)
-        Doc(d.id, d.data()),
-    ];
-
-    await completeTask(store, await task());
-    await pumpEventQueue();
-    expect(pointsThisMonth(await log(), DateTime.now()), {'kevin': 2});
-
-    await uncompleteTask(store, await task(), await log());
-    await pumpEventQueue();
-    expect((await task()).done, isFalse);
-    expect(await log(), isEmpty);
   });
 
   group('Bildschirme', () {
