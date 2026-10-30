@@ -76,8 +76,16 @@ service cloud.firestore {
           request.resource.data.image.size() <= 950000;
       }
 
+      // Produktfotos für Einkaufsliste und Vorräte, eins je Artikelname.
+      match /itemPhotos/{key} {
+        allow read, delete: if isMember(householdId);
+        allow create, update: if isMember(householdId) &&
+          request.resource.data.image is bytes &&
+          request.resource.data.image.size() <= 950000;
+      }
+
       match /{collection}/{docId} {
-        allow read, write: if !(collection in ['locations', 'plantPhotos']) &&
+        allow read, write: if !(collection in ['locations', 'plantPhotos', 'itemPhotos']) &&
           isMember(householdId);
       }
     }

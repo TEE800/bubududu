@@ -5,6 +5,7 @@ import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
 import '../widgets/common.dart';
+import '../widgets/item_icon.dart';
 import '../widgets/mascots.dart';
 
 class ShoppingScreen extends ConsumerStatefulWidget {
@@ -137,23 +138,46 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                           item.id,
                           v ?? false,
                         ),
-                        title: Text(
-                          item.text,
-                          style: item.done
-                              ? const TextStyle(
-                                  decoration: TextDecoration.lineThrough,
-                                )
-                              : null,
-                        ),
-                        subtitle: household == null && !item.pending
-                            ? null
-                            : Text(
-                                [
-                                  if (household != null)
-                                    'von ${household.memberNames[item.addedBy] ?? '?'}',
-                                  if (item.pending) 'noch nicht abgeglichen',
-                                ].join(' · '),
+                        title: Row(
+                          children: [
+                            Opacity(
+                              opacity: item.done ? 0.5 : 1,
+                              child: ItemAvatar(
+                                householdId: widget.householdId,
+                                name: item.text,
                               ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.text,
+                                    style: item.done
+                                        ? const TextStyle(
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                          )
+                                        : null,
+                                  ),
+                                  if (household != null || item.pending)
+                                    Text(
+                                      [
+                                        if (household != null)
+                                          'von ${household.memberNames[item.addedBy] ?? '?'}',
+                                        if (item.pending)
+                                          'noch nicht abgeglichen',
+                                      ].join(' · '),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                         controlAffinity: ListTileControlAffinity.leading,
                         secondary: IconButton(
                           tooltip: 'Löschen',
