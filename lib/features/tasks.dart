@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,7 +7,6 @@ import '../widgets/common.dart';
 import '../widgets/mascots.dart';
 
 /// households/{id}/tasks: Haushaltsaufgaben.
-/// households/{id}/taskLog: wer wann was erledigt hat (für die Punkte).
 class HouseTask {
   const HouseTask({
     required this.id,
@@ -16,7 +14,6 @@ class HouseTask {
     required this.assignee,
     required this.due,
     required this.repeat,
-    required this.points,
     required this.done,
   });
 
@@ -27,7 +24,6 @@ class HouseTask {
   final String assignee;
   final DateTime? due;
   final Repeat repeat;
-  final int points;
   final bool done;
 
   factory HouseTask.fromDoc(Doc d) => HouseTask(
@@ -36,7 +32,6 @@ class HouseTask {
     assignee: d.data['assignee'] as String? ?? '',
     due: readDate(d.data['due']),
     repeat: Repeat.parse(d.data['repeat'] as String?),
-    points: (d.data['points'] as num?)?.toInt() ?? 1,
     done: d.data['done'] as bool? ?? false,
   );
 
@@ -68,23 +63,9 @@ final tasksProvider = Provider.family<AsyncValue<List<HouseTask>>, String>((
       });
 });
 
-/// Punkte pro Person im laufenden Monat.
-Map<String, int> pointsThisMonth(List<Doc> log, DateTime now) {
-  final result = <String, int>{};
-  for (final entry in log) {
-    final at = readDate(entry.data['at']);
-    if (at == null || at.year != now.year || at.month != now.month) continue;
-    final uid = entry.data['uid'] as String? ?? '';
-    result[uid] =
-        (result[uid] ?? 0) + ((entry.data['points'] as num?)?.toInt() ?? 1);
-  }
-  return result;
-}
-
 /// Hakt eine Aufgabe ab. Wiederkehrende Aufgaben rücken auf den nächsten
 /// Termin, der dann zurückgegeben wird.
 Future<DateTime?> completeTask(HouseholdStore store, HouseTask task) async {
-  final now = DateTime.now();
   DateTime? next;
   if (task.repeat == Repeat.none) {
     await store.update('tasks', task.id, {'done': true});
@@ -97,34 +78,7 @@ Future<DateTime?> completeTask(HouseholdStore store, HouseTask task) async {
     next = due;
     await store.update('tasks', task.id, {'due': writeDate(due)});
   }
-  await store.add('taskLog', {
-    'taskId': task.id,
-    'title': task.title,
-    'uid': store.uid,
-    'points': task.points,
-    'at': Timestamp.fromDate(now),
-  });
   return next;
-}
-
-/// Nimmt das Abhaken zurück, samt der Punkte dafür.
-Future<void> uncompleteTask(
-  HouseholdStore store,
-  HouseTask task,
-  List<Doc> log,
-) async {
-  await store.update('tasks', task.id, {'done': false});
-  Doc? last;
-  DateTime? lastAt;
-  for (final entry in log) {
-    if (entry.data['taskId'] != task.id) continue;
-    final at = readDate(entry.data['at']);
-    if (at != null && (lastAt == null || at.isAfter(lastAt))) {
-      last = entry;
-      lastAt = at;
-    }
-  }
-  if (last != null) await store.delete('taskLog', last.id);
 }
 
 class TasksScreen extends ConsumerWidget {
@@ -135,13 +89,7 @@ class TasksScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasks = ref.watch(tasksProvider(householdId));
-    final log = ref
-        .watch(
-          collectionProvider((householdId: householdId, collection: 'taskLog')),
-        )
-        .value;
     final names = memberNames(ref, householdId);
-    final ids = memberIds(ref, householdId);
     final store = ref.read(storeProvider(householdId));
     final now = DateTime.now();
 
@@ -170,45 +118,9 @@ class TasksScreen extends ConsumerWidget {
         onPressed: () => _openEdit(context, null),
       ),
       body: asyncBody(tasks, (list) {
-        final points = pointsThisMonth(log ?? const [], now);
         return ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
-            if (ids.isNotEmpty)
-              Card(
-                margin: const EdgeInsets.all(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Punkte im ${monthNames[now.month - 1]}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          for (final id in ids)
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Text(
-                                    '${points[id] ?? 0}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineMedium,
-                                  ),
-                                  Text(names[id] ?? '?'),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             if (list.isEmpty)
               const EmptyHint(
                 icon: Icons.cleaning_services_outlined,
@@ -224,7 +136,7 @@ class TasksScreen extends ConsumerWidget {
                     names: names,
                     onToggle: () async {
                       if (t.done) {
-                        return uncompleteTask(store, t, log ?? const []);
+                        return store.update('tasks', t.id, {'done': false});
                       }
                       final messenger = ScaffoldMessenger.of(context);
                       final next = await completeTask(store, t);
@@ -306,7 +218,6 @@ class _TaskTile extends StatelessWidget {
       task.assignee.isEmpty ? 'Beide' : names[task.assignee] ?? '?',
       if (task.due != null && !task.done) dueText(task.due!),
       if (task.repeat != Repeat.none) task.repeat.label,
-      '${task.points} ${task.points == 1 ? 'Punkt' : 'Punkte'}',
     ];
     final overdue = task.isOverdue(DateTime.now());
     return ListTile(
@@ -346,7 +257,6 @@ class _TaskEditScreenState extends ConsumerState<TaskEditScreen> {
   late String _assignee = widget.task?.assignee ?? '';
   late DateTime? _due = widget.task?.due ?? today();
   late Repeat _repeat = widget.task?.repeat ?? Repeat.none;
-  late int _points = widget.task?.points ?? 1;
 
   @override
   void dispose() {
@@ -367,7 +277,6 @@ class _TaskEditScreenState extends ConsumerState<TaskEditScreen> {
         'assignee': _assignee,
         'due': writeDate(_due),
         'repeat': _repeat.name,
-        'points': _points,
         if (widget.task == null) 'done': false,
       },
     );
@@ -421,23 +330,6 @@ class _TaskEditScreenState extends ConsumerState<TaskEditScreen> {
               DropdownMenuItem(value: r, child: Text(r.label)),
           ],
           onChanged: (v) => setState(() => _repeat = v ?? Repeat.none),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Aufwand (Punkte)',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            SegmentedButton<int>(
-              segments: [
-                for (var p = 1; p <= 5; p++)
-                  ButtonSegment(value: p, label: Text('$p')),
-              ],
-              selected: {_points},
-              onSelectionChanged: (s) => setState(() => _points = s.first),
-            ),
-          ],
         ),
       ],
     );

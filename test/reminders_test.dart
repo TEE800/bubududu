@@ -102,7 +102,6 @@ void main() {
           assignee: 'kevin',
           due: DateTime(2026, 10, 31),
           repeat: Repeat.weekly,
-          points: 2,
           done: false,
         ),
         HouseTask(
@@ -111,7 +110,6 @@ void main() {
           assignee: 'fritzi',
           due: DateTime(2026, 10, 31),
           repeat: Repeat.none,
-          points: 1,
           done: false,
         ),
       ],

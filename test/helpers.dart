@@ -144,7 +144,6 @@ Future<void> seedHousehold() async {
     'assignee': 'fritzi',
     'due': Timestamp.fromDate(DateTime(now.year, now.month, now.day)),
     'repeat': 'weekly',
-    'points': 2,
     'done': false,
   });
   await store.add('events', {

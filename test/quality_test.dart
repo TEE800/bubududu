@@ -182,31 +182,6 @@ void main() {
     });
   });
 
-  test('Abhaken zurücknehmen nimmt auch die Punkte zurück', () async {
-    final store = HouseholdStore(FakeFirebaseFirestore(), 'h1', 'kevin');
-    await store.col('tasks').doc('t1').set({
-      'title': 'Müll',
-      'points': 2,
-      'done': false,
-    });
-    Future<HouseTask> task() async => HouseTask.fromDoc(
-      Doc('t1', (await store.col('tasks').doc('t1').get()).data()!),
-    );
-    Future<List<Doc>> log() async => [
-      for (final d in (await store.col('taskLog').get()).docs)
-        Doc(d.id, d.data()),
-    ];
-
-    await completeTask(store, await task());
-    await pumpEventQueue();
-    expect(pointsThisMonth(await log(), DateTime.now()), {'kevin': 2});
-
-    await uncompleteTask(store, await task(), await log());
-    await pumpEventQueue();
-    expect((await task()).done, isFalse);
-    expect(await log(), isEmpty);
-  });
-
   group('Bildschirme', () {
     setUp(() async {
       await seedHousehold();

@@ -216,13 +216,12 @@ void main() {
   });
 
   group('Aufgaben', () {
-    test('Wiederkehrende Aufgabe rückt weiter und gibt Punkte', () async {
+    test('Wiederkehrende Aufgabe rückt weiter', () async {
       final db = FakeFirebaseFirestore();
       final store = HouseholdStore(db, 'h1', 'kevin');
       await store.col('tasks').doc('t1').set({
         'title': 'Bad putzen',
         'repeat': 'weekly',
-        'points': 3,
         'due': Timestamp.fromDate(today().subtract(const Duration(days: 10))),
         'done': false,
       });
@@ -235,12 +234,6 @@ void main() {
       expect(after.done, isFalse);
       expect(after.due!.isAfter(today()), isTrue);
       expect(daysBetween(today(), after.due!) <= 7, isTrue);
-
-      final log = await store.col('taskLog').get();
-      final points = pointsThisMonth([
-        for (final d in log.docs) Doc(d.id, d.data()),
-      ], DateTime.now());
-      expect(points, {'kevin': 3});
     });
 
     test('Einmalige Aufgabe wird abgehakt', () async {
