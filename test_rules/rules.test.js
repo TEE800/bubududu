@@ -155,4 +155,10 @@ test('Pflanzenfotos: nur Mitglieder, nur Bilder bis knapp 1 MB', async () => {
   await assertFails(setDoc(doc(as('dudu'), 'households/h1/plantPhotos/c'), { plantId: 'x', image: 'kein Bild' }));
   await assertFails(getDoc(doc(as('fremd'), 'households/h1/plantPhotos/a')));
   await assertFails(setDoc(doc(as('fremd'), 'households/h1/plantPhotos/d'), photo(10)));
+  await assertSucceeds(setDoc(doc(as('dudu'), 'households/h1/itemPhotos/milch'), { name: 'Milch', image: Bytes.fromUint8Array(new Uint8Array(1000)) }));
+  await assertSucceeds(getDoc(doc(as('bubu'), 'households/h1/itemPhotos/milch')));
+  await assertSucceeds(deleteDoc(doc(as('bubu'), 'households/h1/itemPhotos/milch')));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/itemPhotos/brot'), { name: 'Brot', image: Bytes.fromUint8Array(new Uint8Array(960000)) }));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/itemPhotos/brot'), { name: 'Brot', image: 'kein Bild' }));
+  await assertFails(getDoc(doc(as('fremd'), 'households/h1/itemPhotos/milch')));
 });
