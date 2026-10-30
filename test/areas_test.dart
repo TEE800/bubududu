@@ -8,6 +8,7 @@ import 'package:bubududu/screens/recipes_screen.dart';
 import 'package:bubududu/screens/settings_screen.dart';
 import 'package:bubududu/screens/shopping_screen.dart';
 import 'package:bubududu/util/recipe_parser.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -193,6 +194,56 @@ void main() {
       final rice = (await docs('pantry'))
           .firstWhere((p) => p['name'] == 'Reis');
       expect(rice['place'], 'Keller');
+    });
+
+    testWidgets('Nutzungen zählen und einmal benutzen', (tester) async {
+      await pumpPage(tester, const PantryEditScreen(householdId: 'h1'));
+      await fill(tester, 'Was?', 'Badezusatz');
+      await tester.ensureVisible(find.text('Nutzungen zählen'));
+      await tester.tap(find.text('Nutzungen zählen'));
+      await settle(tester);
+      await tester.ensureVisible(
+        find.widgetWithText(TextField, 'Nutzungen insgesamt'),
+      );
+      await fill(tester, 'Nutzungen insgesamt', '10');
+      await tester.ensureVisible(find.text('Automatisch verbrauchen'));
+      await tester.tap(find.text('Automatisch verbrauchen'));
+      await settle(tester);
+      final amount = find.widgetWithText(TextField, 'Wie viele Nutzungen?');
+      await tester.scrollUntilVisible(
+        find.text('pro Woche'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('pro Woche'));
+      await tester.enterText(amount, '0,5');
+      await save(tester);
+      final bath = (await docs('pantry'))
+          .firstWhere((p) => p['name'] == 'Badezusatz');
+      expect(bath['uses'], 10);
+      expect(bath['usesLeft'], 10);
+      expect(bath['autoAmount'], 0.5);
+      expect(bath['autoUnit'], 'week');
+    });
+
+    testWidgets('Einmal benutzt zieht eine Nutzung ab', (tester) async {
+      await db.collection('households/h1/pantry').add({
+        'name': 'Badezusatz',
+        'level': 'full',
+        'uses': 10,
+        'usesLeft': 10,
+        'usesAt': Timestamp.now(),
+        'autoAmount': 0,
+      });
+      await pumpPage(tester, const PantryScreen(householdId: 'h1'));
+      await settle(tester);
+      expect(find.textContaining('noch 10 von 10'), findsOneWidget);
+      await tester.tap(find.byTooltip('Einmal benutzt'));
+      await settle(tester);
+      final bath = (await docs('pantry'))
+          .firstWhere((p) => p['name'] == 'Badezusatz');
+      expect(bath['usesLeft'], 9);
+      expect(find.textContaining('noch 9 von 10'), findsWidgets);
     });
   });
 
