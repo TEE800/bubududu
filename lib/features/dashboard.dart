@@ -6,6 +6,7 @@ import '../data/providers.dart';
 import '../data/store.dart';
 import '../services/stocks.dart';
 import '../services/weather.dart';
+import '../util/aktionstage.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
 import '../widgets/common.dart';
@@ -106,6 +107,7 @@ class DashboardScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            _AktionstageCard(now: now),
             _WeatherCard(householdId: householdId),
             _TodayCard(householdId: householdId, onOpenTab: onOpenTab),
             _UpcomingCard(householdId: householdId, onOpenTab: onOpenTab),
@@ -174,6 +176,118 @@ class _DashCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Die Aktionstage von heute. Gibt es heute keinen, die nächsten.
+/// Antippen zeigt, was hinter dem Tag steckt.
+class _AktionstageCard extends StatelessWidget {
+  const _AktionstageCard({required this.now});
+
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final todays = aktionstageAm(now);
+    final DateTime day;
+    final List<Aktionstag> shown;
+    final String intro;
+    if (todays.isNotEmpty) {
+      day = dateOnly(now);
+      shown = todays;
+      intro = 'Heute ist ${weekdayLong(now)} und außerdem:';
+    } else {
+      final next = naechsteAktionstage(now);
+      if (next == null) return const SizedBox.shrink();
+      day = next.$1;
+      shown = next.$2;
+      intro = daysBetween(now, day) == 1
+          ? 'Heute steht nichts an. Morgen ist:'
+          : 'Heute steht nichts an. Am ${formatDate(day, now: now)} ist:';
+    }
+    return _DashCard(
+      icon: Icons.celebration_outlined,
+      title: todays.isNotEmpty ? 'Aktionstage heute' : 'Nächster Aktionstag',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(intro),
+          for (final t in shown)
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showAktionstag(context, t, day),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      t.witzig
+                          ? Icons.sentiment_very_satisfied_outlined
+                          : Icons.public,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        t.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const Icon(Icons.info_outline, size: 18),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Zeigt die Infos zu einem Aktionstag in einem Blatt von unten.
+Future<void> showAktionstag(BuildContext context, Aktionstag t, DateTime day) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) {
+      final theme = Theme.of(context);
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t.name, style: theme.textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Chip(
+                    avatar: Icon(
+                      t.witzig
+                          ? Icons.sentiment_very_satisfied_outlined
+                          : Icons.public,
+                      size: 18,
+                    ),
+                    label: Text(t.witzig ? 'Zum Schmunzeln' : 'Zum Nachdenken'),
+                  ),
+                  Chip(
+                    avatar: const Icon(Icons.event, size: 18),
+                    label: Text(formatDate(day)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(t.info, style: theme.textTheme.bodyLarge),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _WeatherCard extends ConsumerWidget {
