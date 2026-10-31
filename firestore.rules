@@ -84,8 +84,17 @@ service cloud.firestore {
           request.resource.data.image.size() <= 950000;
       }
 
+      // Dokumente und Fotos zu Verträgen, je Datei ein Dokument (max. 1 MB).
+      match /contractFiles/{fileId} {
+        allow read, delete: if isMember(householdId);
+        allow create, update: if isMember(householdId) &&
+          request.resource.data.contractId is string &&
+          request.resource.data.data is bytes &&
+          request.resource.data.data.size() <= 950000;
+      }
+
       match /{collection}/{docId} {
-        allow read, write: if !(collection in ['locations', 'plantPhotos', 'itemPhotos']) &&
+        allow read, write: if !(collection in ['locations', 'plantPhotos', 'itemPhotos', 'contractFiles']) &&
           isMember(householdId);
       }
     }
