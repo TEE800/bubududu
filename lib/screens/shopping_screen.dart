@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/models.dart';
 import '../data/providers.dart';
@@ -58,6 +59,24 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
       );
   }
 
+  /// Öffnet Rewe: die Rewe-App, falls installiert und für rewe.de-Links
+  /// zuständig, sonst die Webseite im Browser. Eine echte Verbindung zur
+  /// Rewe-Bonus-App gibt es nicht, weil Rewe keine Schnittstelle anbietet.
+  Future<void> _openRewe() async {
+    var ok = false;
+    try {
+      ok = await launchUrl(
+        Uri.parse('https://www.rewe.de/'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {}
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rewe ließ sich nicht öffnen.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = ref.read(householdRepositoryProvider);
@@ -68,6 +87,11 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
       appBar: AppBar(
         title: const Text('Einkaufsliste'),
         actions: [
+          IconButton(
+            tooltip: 'Rewe öffnen',
+            icon: const Icon(Icons.storefront_outlined),
+            onPressed: _openRewe,
+          ),
           if (items.value?.any((i) => i.done) ?? false)
             TextButton.icon(
               style: TextButton.styleFrom(
