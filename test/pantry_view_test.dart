@@ -26,6 +26,16 @@ void main() {
     expect(sections[1].$2.map((i) => i.name), ['Apfelsaft', 'Nudeln']);
   });
 
+  test('nach Produktgruppen: in Einkaufsreihenfolge', () {
+    final sections = pantrySections(items, PantrySort.groups, now);
+    expect(sections.map((s) => s.$1), [
+      'Nudeln, Reis & Konserven',
+      'Getränke',
+      'Haushalt',
+    ]);
+    expect(sections[2].$2.map((i) => i.name), ['Batterien', 'Klopapier']);
+  });
+
   test('alphabetisch: ein Abschnitt ohne Überschrift', () {
     final sections = pantrySections(items, PantrySort.name, now);
     expect(sections.single.$1, '');

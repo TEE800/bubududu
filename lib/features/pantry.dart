@@ -178,6 +178,7 @@ final pantryProvider = Provider.family<AsyncValue<List<PantryItem>>, String>(
 /// Wie die Vorräte angeordnet sind. Merkt sich jedes Gerät selbst.
 enum PantrySort {
   rooms('Nach Räumen', Icons.meeting_room_outlined),
+  groups('Nach Produktgruppen', Icons.category_outlined),
   name('Alphabetisch', Icons.sort_by_alpha),
   left('Nach Restmenge', Icons.battery_3_bar);
 
@@ -227,7 +228,8 @@ int _byName(PantryItem a, PantryItem b) =>
     a.name.toLowerCase().compareTo(b.name.toLowerCase());
 
 /// Ordnet die Vorräte in Abschnitte: nach Räumen (alphabetisch, „Ohne Raum“
-/// zuletzt) oder als ein einziger Abschnitt ohne Überschrift ('').
+/// zuletzt), nach Produktgruppen (in Einkaufsreihenfolge) oder als ein
+/// einziger Abschnitt ohne Überschrift ('').
 List<(String, List<PantryItem>)> pantrySections(
   List<PantryItem> items,
   PantrySort sort,
@@ -247,6 +249,15 @@ List<(String, List<PantryItem>)> pantrySections(
             return c != 0 ? c : _byName(a, b);
           }),
         ),
+      ];
+    case PantrySort.groups:
+      final groups = <ProductGroup, List<PantryItem>>{};
+      for (final i in items) {
+        groups.putIfAbsent(itemGroup(i.name), () => []).add(i);
+      }
+      return [
+        for (final g in ProductGroup.values)
+          if (groups[g] case final list?) (g.label, list..sort(_byName)),
       ];
     case PantrySort.rooms:
       final rooms = <String, (String, List<PantryItem>)>{};

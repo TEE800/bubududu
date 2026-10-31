@@ -191,18 +191,104 @@ const _symbols = <(List<String>, String)>[
   (['gemüse'], '🥦'),
 ];
 
+/// Produktgruppen, in der Reihenfolge eines typischen Einkaufs.
+enum ProductGroup {
+  fruitVeg('Obst & Gemüse'),
+  bakery('Brot & Frühstück'),
+  dairy('Milch, Käse & Eier'),
+  meatFish('Fleisch & Fisch'),
+  pantry('Nudeln, Reis & Konserven'),
+  frozen('Tiefkühl'),
+  sweets('Süßes & Snacks'),
+  drinks('Getränke'),
+  household('Haushalt'),
+  care('Drogerie & Gesundheit'),
+  petsPlants('Tiere & Pflanzen'),
+  other('Sonstiges');
+
+  const ProductGroup(this.label);
+  final String label;
+}
+
+const _groupBySymbol = {
+  '🥜': ProductGroup.sweets,
+  '🥨': ProductGroup.sweets,
+  '🧃': ProductGroup.drinks,
+  '🫒': ProductGroup.pantry,
+  '🍦': ProductGroup.frozen,
+  '🥛': ProductGroup.dairy,
+  '🥥': ProductGroup.pantry,
+  '🪥': ProductGroup.care,
+  '🧻': ProductGroup.household,
+  '🧴': ProductGroup.care,
+  '🧽': ProductGroup.household,
+  '🗑️': ProductGroup.household,
+  '🔋': ProductGroup.household,
+  '💡': ProductGroup.household,
+  '💊': ProductGroup.care,
+  '👶': ProductGroup.care,
+  '🐈': ProductGroup.petsPlants,
+  '🐕': ProductGroup.petsPlants,
+  '🪴': ProductGroup.petsPlants,
+  '🧀': ProductGroup.dairy,
+  '🧈': ProductGroup.dairy,
+  '🥣': ProductGroup.dairy,
+  '🥚': ProductGroup.dairy,
+  '🍞': ProductGroup.bakery,
+  '🍝': ProductGroup.pantry,
+  '🍚': ProductGroup.pantry,
+  '🧂': ProductGroup.pantry,
+  '🍯': ProductGroup.bakery,
+  '🥫': ProductGroup.pantry,
+  '☕': ProductGroup.drinks,
+  '🍵': ProductGroup.drinks,
+  '💧': ProductGroup.drinks,
+  '🍺': ProductGroup.drinks,
+  '🍷': ProductGroup.drinks,
+  '🍫': ProductGroup.sweets,
+  '🍿': ProductGroup.sweets,
+  '🍪': ProductGroup.sweets,
+  '🍕': ProductGroup.frozen,
+  '🍗': ProductGroup.meatFish,
+  '🥩': ProductGroup.meatFish,
+  '🥓': ProductGroup.meatFish,
+  '🐟': ProductGroup.meatFish,
+  '🧊': ProductGroup.dairy,
+};
+
+/// Wo das Symbol allein nicht reicht (gleiches Symbol, andere Gruppe),
+/// entscheidet das erste Stichwort der Zeile.
+const _groupByFirstKey = {
+  'spülmittel': ProductGroup.household,
+  'müsli': ProductGroup.bakery,
+  'erdnussbutter': ProductGroup.bakery,
+  'hafermilch': ProductGroup.drinks,
+};
+
+(List<String>, String)? _match(String name) {
+  final text = name.toLowerCase();
+  final words = text.split(RegExp(r'[^a-zäöüß-]+'));
+  for (final entry in _symbols) {
+    for (final k in entry.$1) {
+      if (k.length <= 3 ? words.contains(k) : text.contains(k)) return entry;
+    }
+  }
+  return null;
+}
+
 /// Symbol (Emoji) zu einem Artikelnamen, z. B. „2 Liter Milch“ → 🥛.
 /// Kurze Stichworte (bis 3 Buchstaben) müssen ein ganzes Wort sein,
 /// damit „Eis“ nicht in „Reis“ oder „Ei“ nicht in „Eimer“ gefunden wird.
-String itemSymbol(String name) {
-  final text = name.toLowerCase();
-  final words = text.split(RegExp(r'[^a-zäöüß-]+'));
-  for (final (keys, symbol) in _symbols) {
-    for (final k in keys) {
-      if (k.length <= 3 ? words.contains(k) : text.contains(k)) return symbol;
-    }
-  }
-  return '🛒';
+String itemSymbol(String name) => _match(name)?.$2 ?? '🛒';
+
+/// Produktgruppe zu einem Artikelnamen; Obst und Gemüse sind alles, was
+/// nicht anders eingeordnet ist und ein Obst- oder Gemüse-Symbol hat.
+ProductGroup itemGroup(String name) {
+  final entry = _match(name);
+  if (entry == null) return ProductGroup.other;
+  return _groupByFirstKey[entry.$1.first] ??
+      _groupBySymbol[entry.$2] ??
+      ProductGroup.fruitVeg;
 }
 
 /// households/{id}/itemPhotos/{key}: ein Produktfoto je Artikelname, gemeinsam

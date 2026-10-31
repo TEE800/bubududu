@@ -33,6 +33,17 @@ void main() {
       expect(itemSymbol('Pfeffer'), '🧂');
     });
 
+    test('Produktgruppen', () {
+      expect(itemGroup('Bananen'), ProductGroup.fruitVeg);
+      expect(itemGroup('Gouda'), ProductGroup.dairy);
+      expect(itemGroup('Shampoo'), ProductGroup.care);
+      expect(itemGroup('Spülmittel'), ProductGroup.household);
+      expect(itemGroup('Müsli'), ProductGroup.bakery);
+      expect(itemGroup('Joghurt'), ProductGroup.dairy);
+      expect(itemGroup('Bier'), ProductGroup.drinks);
+      expect(itemGroup('Geschenk für Oma'), ProductGroup.other);
+    });
+
     test('Unbekanntes bekommt den Einkaufswagen', () {
       expect(itemSymbol('Geschenk für Oma'), '🛒');
       expect(itemSymbol(''), '🛒');
