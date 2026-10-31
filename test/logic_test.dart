@@ -176,6 +176,34 @@ void main() {
   });
 
   group('Pflege und Verträge', () {
+    test('Fixkosten je Person: geteilt zählt halb', () {
+      Contract c(
+        int cents,
+        String paidBy, [
+        BillingInterval i = BillingInterval.monthly,
+      ]) => Contract(
+        id: '$cents',
+        name: 'x',
+        provider: '',
+        costCents: cents,
+        interval: i,
+        cancelBy: null,
+        note: '',
+        paidBy: paidBy,
+      );
+      final shares = monthlyShares(
+        [
+          c(1000, ''),
+          c(500, 'kevin'),
+          c(12000, 'fritzi', BillingInterval.yearly),
+        ],
+        ['kevin', 'fritzi'],
+      );
+      expect(shares, {'kevin': 1000, 'fritzi': 1500});
+      expect(payerText(c(1, ''), const {}), 'geteilt');
+      expect(payerText(c(1, 'fritzi'), const {'fritzi': 'Bubu'}), 'zahlt Bubu');
+    });
+
     test('Fälligkeit', () {
       final item = CareItem(
         id: '1',

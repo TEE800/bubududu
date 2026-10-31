@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import '../util/dates.dart';
 import '../util/money.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
+import 'contract_files.dart';
 
 enum BillingInterval {
   monthly('monatlich', 1),
@@ -31,6 +33,7 @@ class Contract {
     required this.interval,
     required this.cancelBy,
     required this.note,
+    this.paidBy = '',
   });
 
   final String id;
@@ -43,6 +46,9 @@ class Contract {
   final DateTime? cancelBy;
   final String note;
 
+  /// Wer zahlt: uid einer Person oder '' = beide je zur Hälfte.
+  final String paidBy;
+
   int get monthlyCents => (costCents / interval.months).round();
 
   factory Contract.fromDoc(Doc d) => Contract(
@@ -53,8 +59,29 @@ class Contract {
     interval: BillingInterval.parse(d.data['interval'] as String?),
     cancelBy: readDate(d.data['cancelBy']),
     note: d.data['note'] as String? ?? '',
+    paidBy: d.data['paidBy'] as String? ?? '',
   );
 }
+
+/// Monatliche Fixkosten je Person: Geteiltes zählt bei beiden zur Hälfte.
+Map<String, int> monthlyShares(List<Contract> list, List<String> members) {
+  final result = {for (final m in members) m: 0};
+  for (final c in list) {
+    if (c.paidBy.isNotEmpty && result.containsKey(c.paidBy)) {
+      result[c.paidBy] = result[c.paidBy]! + c.monthlyCents;
+    } else if (members.isNotEmpty) {
+      final share = c.monthlyCents / members.length;
+      for (final m in members) {
+        result[m] = result[m]! + share.round();
+      }
+    }
+  }
+  return result;
+}
+
+/// Kurzer Text, wer zahlt, z. B. „zahlt Bubu“ oder „geteilt“.
+String payerText(Contract c, Map<String, String> names) =>
+    c.paidBy.isEmpty ? 'geteilt' : 'zahlt ${names[c.paidBy] ?? '?'}';
 
 final contractsProvider = Provider.family<AsyncValue<List<Contract>>, String>(
   (ref, householdId) => ref
@@ -121,17 +148,35 @@ class ContractsScreen extends ConsumerWidget {
           );
         }
         final total = list.fold<int>(0, (s, c) => s + c.monthlyCents);
+        final names = memberNames(ref, householdId);
+        final members = memberIds(ref, householdId);
+        final shares = monthlyShares(list, members);
         final now = DateTime.now();
+        final textTheme = Theme.of(context).textTheme;
         return ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
             Card(
               margin: const EdgeInsets.all(16),
-              child: ListTile(
-                title: const Text('Fixkosten pro Monat'),
-                trailing: Text(
-                  formatCents(total),
-                  style: Theme.of(context).textTheme.titleLarge,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _SumRow(
+                      'Fixkosten pro Monat',
+                      formatCents(total),
+                      style: textTheme.titleLarge,
+                    ),
+                    _SumRow('Pro Jahr', formatCents(total * 12)),
+                    if (members.length > 1) ...[
+                      const Divider(height: 24),
+                      for (final m in members)
+                        _SumRow(
+                          '${names[m] ?? '?'} pro Monat',
+                          formatCents(shares[m] ?? 0),
+                        ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -145,6 +190,7 @@ class ContractsScreen extends ConsumerWidget {
                   [
                     if (c.provider.isNotEmpty) c.provider,
                     '${formatCents(c.costCents)} ${c.interval.label}',
+                    if (members.length > 1) payerText(c, names),
                     if (c.cancelBy != null)
                       c.cancelBy!.isBefore(dateOnly(now))
                           ? 'Frist vorbei (${formatShortDate(c.cancelBy!)})'
@@ -170,6 +216,25 @@ class ContractsScreen extends ConsumerWidget {
   void _open(BuildContext context, Contract? c) => Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => ContractEditScreen(householdId: householdId, contract: c),
+    ),
+  );
+}
+
+class _SumRow extends StatelessWidget {
+  const _SumRow(this.label, this.value, {this.style});
+
+  final String label;
+  final String value;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Expanded(child: Text(label)),
+        Text(value, style: style),
+      ],
     ),
   );
 }
@@ -200,11 +265,23 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
   late BillingInterval _interval =
       widget.contract?.interval ?? BillingInterval.monthly;
   late DateTime? _cancelBy = widget.contract?.cancelBy;
+  late String _paidBy = widget.contract?.paidBy ?? '';
+
+  /// Neue Verträge bekommen ihre id gleich, damit man schon vor dem
+  /// Speichern Dateien anhängen kann.
+  late final _store = ref.read(storeProvider(widget.householdId));
+  late final String _id =
+      widget.contract?.id ?? _store.col('contracts').doc().id;
+  bool _saved = false;
 
   @override
   void dispose() {
     for (final c in [_name, _provider, _cost, _note]) {
       c.dispose();
+    }
+    // Neuer Vertrag verworfen: angehängte Dateien wieder entfernen.
+    if (widget.contract == null && !_saved) {
+      deleteContractFiles(_store, _id);
     }
     super.dispose();
   }
@@ -216,18 +293,25 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
     if (cost == null) {
       return showError(context, 'Bitte gib einen Betrag ein, z. B. 12,99.');
     }
-    await ref.read(storeProvider(widget.householdId)).save(
-      'contracts',
-      widget.contract?.id,
-      {
-        'name': name,
-        'provider': _provider.text.trim(),
-        'costCents': cost,
-        'interval': _interval.name,
-        'cancelBy': writeDate(_cancelBy),
-        'note': _note.text.trim(),
-      },
-    );
+    final data = {
+      'name': name,
+      'provider': _provider.text.trim(),
+      'costCents': cost,
+      'interval': _interval.name,
+      'cancelBy': writeDate(_cancelBy),
+      'note': _note.text.trim(),
+      'paidBy': _paidBy,
+    };
+    _saved = true;
+    if (widget.contract == null) {
+      await _store.set('contracts', _id, {
+        ...data,
+        'createdBy': _store.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } else {
+      await _store.update('contracts', _id, data);
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -243,10 +327,10 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
               if (!await confirmDelete(context, c.name) || !context.mounted) {
                 return;
               }
+              _saved = true;
               Navigator.of(context).pop();
-              await ref
-                  .read(storeProvider(widget.householdId))
-                  .delete('contracts', c.id);
+              await _store.delete('contracts', c.id);
+              await deleteContractFiles(_store, c.id);
             },
       children: [
         TextField(
@@ -280,6 +364,12 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
           ],
           onChanged: (v) => setState(() => _interval = v ?? _interval),
         ),
+        MemberPicker(
+          householdId: widget.householdId,
+          label: 'Wer zahlt?',
+          value: _paidBy,
+          onChanged: (v) => setState(() => _paidBy = v),
+        ),
         DateField(
           label: 'Kündigen bis (optional)',
           value: _cancelBy,
@@ -293,6 +383,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
           ),
           maxLines: null,
         ),
+        ContractFilesSection(householdId: widget.householdId, contractId: _id),
       ],
     );
   }
