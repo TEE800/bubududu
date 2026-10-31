@@ -19,7 +19,7 @@ Das Konzept mit allen geplanten Bereichen und dem MVP liegt im Projekt als Dokum
 | Essensplan | Wochenplan, Rezepte mit einem Tipp übernehmen |
 | Notizen | Pinnwand mit Kategorien (WLAN, Kontakte, Geschenkideen …) |
 | Vorräte | Bestand und Mindesthaltbarkeit, fehlende Vorräte auf die Einkaufsliste |
-| Verträge | Kosten, Zahlungsrhythmus, Kündigungsfristen mit Hinweis |
+| Verträge | Kosten, Zahlungsrhythmus, wer zahlt, Summen pro Monat/Jahr/Person, Kündigungsfristen mit Hinweis, Dokumente & Fotos |
 | Reisen | Reisen mit gemeinsamer Packliste |
 | Gesundheit | Arzttermine, Impfungen und Vorsorge pro Person, Empfehlungen nach Alter, private Einträge |
 | Tiere & Pflanzen | Gießen, Füttern, Tierarzt im festen Rhythmus; Pflanzenprofile mit Standort, Düngen, Fotoverlauf und Zeitraffer |
@@ -178,7 +178,7 @@ Datenstruktur in Firestore:
 | `households/{id}/recipes`, `mealPlan/{yyyy-mm-dd}` | Rezepte, Essensplan |
 | `households/{id}/tasks` | Haushaltsaufgaben |
 | `households/{id}/events` | Termine |
-| `households/{id}/expenses`, `contracts` | Ausgaben, Verträge |
+| `households/{id}/expenses`, `contracts`, `contractFiles` | Ausgaben, Verträge, Dateien zu Verträgen (max. 900 KB je Datei) |
 | `households/{id}/notes`, `pantry`, `trips`, `care`, `ideas` | weitere Bereiche |
 | `households/{id}/locations/{uid}` | geteilter Standort (nur von der Person selbst schreibbar) |
 | `households/{id}/health`, `healthProfiles` im Haushalt | gemeinsame Gesundheitseinträge, Geburtsdatum |

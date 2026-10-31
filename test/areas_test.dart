@@ -1,6 +1,8 @@
 import 'package:bubududu/features/calendar.dart';
 import 'package:bubududu/features/care.dart';
+import 'package:bubududu/features/contract_files.dart';
 import 'package:bubududu/features/contracts.dart';
+import 'package:bubududu/data/store.dart';
 import 'package:bubududu/features/notes.dart';
 import 'package:bubududu/features/pantry.dart';
 import 'package:bubududu/features/trips.dart';
@@ -10,6 +12,9 @@ import 'package:bubududu/screens/shopping_screen.dart';
 import 'package:bubududu/util/recipe_parser.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -170,6 +175,55 @@ void main() {
       await fill(tester, 'Betrag', 'viel');
       await save(tester);
       expect(find.textContaining('Bitte gib einen Betrag ein'), findsOneWidget);
+    });
+
+    testWidgets('Wer zahlt wird gespeichert', (tester) async {
+      await pumpPage(tester, const ContractEditScreen(householdId: 'h1'));
+      await fill(tester, 'Was?', 'Handy');
+      await fill(tester, 'Betrag', '20');
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Bubu'));
+      await save(tester);
+      final c = (await docs('contracts'))
+          .firstWhere((c) => c['name'] == 'Handy');
+      expect(c['paidBy'], 'fritzi');
+      expect(c['createdBy'], isNotNull);
+    });
+
+    testWidgets('Datei anhängen und mit dem Vertrag löschen', (tester) async {
+      await pumpPage(
+        tester,
+        const ContractEditScreen(householdId: 'h1'),
+        overrides: [
+          contractDocumentPickerProvider.overrideWithValue(
+            () async => (
+              bytes: Uint8List.fromList([1, 2, 3]),
+              name: 'Vertrag.pdf',
+              mime: 'application/pdf',
+            ),
+          ),
+        ],
+      );
+      await fill(tester, 'Was?', 'Internet');
+      await fill(tester, 'Betrag', '39,99');
+      await tester.ensureVisible(find.text('Datei hinzufügen'));
+      await tester.tap(find.text('Datei hinzufügen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dokument (z. B. PDF)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Vertrag.pdf'), findsOneWidget);
+      await save(tester);
+
+      final contract = (await db.collection('households/h1/contracts').get())
+          .docs
+          .firstWhere((d) => d['name'] == 'Internet');
+      final files = await docs('contractFiles');
+      expect(files, hasLength(1));
+      expect(files.single['contractId'], contract.id);
+      expect(files.single['mime'], 'application/pdf');
+
+      final store = HouseholdStore(db, 'h1', 'kevin');
+      await deleteContractFiles(store, contract.id);
+      expect(await docs('contractFiles'), isEmpty);
     });
   });
 
