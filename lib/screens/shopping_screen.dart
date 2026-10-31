@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
+import '../features/receipt_import.dart';
 import '../widgets/common.dart';
 import '../widgets/item_icon.dart';
 import '../widgets/mascots.dart';
@@ -87,10 +88,26 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
       appBar: AppBar(
         title: const Text('Einkaufsliste'),
         actions: [
-          IconButton(
-            tooltip: 'Rewe öffnen',
+          PopupMenuButton<void Function()>(
+            tooltip: 'Rewe',
             icon: const Icon(Icons.storefront_outlined),
-            onPressed: _openRewe,
+            onSelected: (action) => action(),
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: () => importReweReceipt(context, widget.householdId),
+                child: const ListTile(
+                  leading: Icon(Icons.receipt_long_outlined),
+                  title: Text('Kassenbon einlesen'),
+                ),
+              ),
+              PopupMenuItem(
+                value: _openRewe,
+                child: const ListTile(
+                  leading: Icon(Icons.open_in_new),
+                  title: Text('Rewe öffnen'),
+                ),
+              ),
+            ],
           ),
           if (items.value?.any((i) => i.done) ?? false)
             TextButton.icon(
