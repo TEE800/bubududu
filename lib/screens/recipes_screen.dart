@@ -27,17 +27,22 @@ class RecipesScreen extends ConsumerWidget {
             const ListTile(
               title: Text('Rezept scannen'),
               subtitle: Text(
-                'Am besten gerade von oben und mit gutem Licht fotografieren.',
+                'Passt das Rezept nicht auf ein Bild, einfach mehrere '
+                'nehmen, sie werden zu einem Rezept zusammengefügt.',
               ),
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Foto aufnehmen'),
+              title: const Text('Fotos aufnehmen'),
+              subtitle: const Text('Gerade von oben, mit gutem Licht'),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Bild aus der Galerie'),
+              title: const Text('Bilder aus der Galerie'),
+              subtitle: const Text(
+                'Ein oder mehrere Screenshots, von oben nach unten antippen',
+              ),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
           ],
@@ -45,6 +50,51 @@ class RecipesScreen extends ConsumerWidget {
       ),
     );
     if (source == null || !context.mounted) return;
+
+    final images = <XFile>[];
+    try {
+      if (source == ImageSource.gallery) {
+        images.addAll(await pickRecipeImages());
+      } else {
+        while (true) {
+          final photo = await takeRecipePhoto();
+          if (photo == null || !context.mounted) break;
+          images.add(photo);
+          final more = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(
+                images.length == 1
+                    ? '1 Foto aufgenommen'
+                    : '${images.length} Fotos aufgenommen',
+              ),
+              content: const Text('Geht das Rezept noch weiter?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Weiteres Foto'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Fertig'),
+                ),
+              ],
+            ),
+          );
+          if (more != true) break;
+        }
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Die Bilder konnten nicht geöffnet werden.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (images.isEmpty || !context.mounted) return;
 
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -64,7 +114,7 @@ class RecipesScreen extends ConsumerWidget {
     List<OcrLine>? lines;
     Object? error;
     try {
-      lines = await scanRecipeText(source);
+      lines = await scanRecipeImages(images);
     } catch (e) {
       error = e;
     }
@@ -72,15 +122,18 @@ class RecipesScreen extends ConsumerWidget {
 
     if (error != null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Das Bild konnte nicht gelesen werden.')),
+        const SnackBar(
+          content: Text('Die Bilder konnten nicht gelesen werden.'),
+        ),
       );
       return;
     }
-    if (lines == null) return;
-    final draft = parseRecipeLines(lines);
+    final draft = parseRecipeLines(lines!);
     if (draft.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Auf dem Bild wurde kein Text erkannt.')),
+        const SnackBar(
+          content: Text('Auf den Bildern wurde kein Text erkannt.'),
+        ),
       );
       return;
     }

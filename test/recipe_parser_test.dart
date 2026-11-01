@@ -164,4 +164,66 @@ Alles schneiden.''');
   test('Nur Störtext ergibt einen leeren Entwurf', () {
     expect(parseRecipeText('08:45\nT\n87%\nAll Posts').isEmpty, isTrue);
   });
+
+  group('Mehrere Bilder', () {
+    List<OcrLine> page(String t) => [for (final l in t.split('\n')) OcrLine(l)];
+
+    test(
+      'Screenshots mit Überlappung werden ohne Doppeltes zusammengefügt',
+      () {
+        final lines = mergeOcrPages([
+          page('''
+08:45
+Linsencurry
+Zutaten
+200 g rote Linsen
+1 Dose Kokosmilch
+2 EL Currypaste'''),
+          page('''
+08:46
+1 Dose Kokosmilch
+2 EL Currypaste
+1 Zwiebel
+Zubereitung
+1. Zwiebel in Würfel schneiden und anbraten.'''),
+          page('''
+08:46
+1. Zwiebel in Würfel schneiden und anbraten.
+2. Linsen und Kokosmilch dazugeben und 15 Minuten köcheln.'''),
+        ]);
+        final d = parseRecipeLines(lines);
+        expect(d.title, 'Linsencurry');
+        expect(d.ingredients, [
+          '200 g rote Linsen',
+          '1 Dose Kokosmilch',
+          '2 EL Currypaste',
+          '1 Zwiebel',
+        ]);
+        expect(
+          d.instructions,
+          'Zwiebel in Würfel schneiden und anbraten.\n\n'
+          'Linsen und Kokosmilch dazugeben und 15 Minuten köcheln.',
+        );
+      },
+    );
+
+    test('Bilder ohne Überlappung werden einfach aneinandergehängt', () {
+      final lines = mergeOcrPages([
+        page('Linsencurry\nZutaten\n200 g rote Linsen\n1 Ei'),
+        page('1 Ei\nZubereitung\nAlles verrühren.'),
+      ]);
+      final d = parseRecipeLines(lines);
+      // Eine einzelne kurze Zeile gilt nicht als Überlappung.
+      expect(d.ingredients, ['200 g rote Linsen', '1 Ei', '1 Ei']);
+      expect(d.instructions, 'Alles verrühren.');
+    });
+
+    test('Ein einzelnes Bild bleibt unverändert', () {
+      final d = parseRecipeLines(
+        mergeOcrPages([page('Toast\nZutaten\n2 Scheiben Brot')]),
+      );
+      expect(d.title, 'Toast');
+      expect(d.ingredients, ['2 Scheiben Brot']);
+    });
+  });
 }
