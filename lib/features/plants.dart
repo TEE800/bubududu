@@ -99,7 +99,7 @@ final plantPhotoPickerProvider = Provider<PhotoPicker>(
 /// Speichert ein Foto und merkt es sich als neuestes, wenn es das ist.
 Future<void> addPlantPhoto(
   HouseholdStore store,
-  CareItem plant,
+  String plantId,
   Uint8List bytes,
   DateTime takenAt, {
   DateTime? latest,
@@ -107,7 +107,7 @@ Future<void> addPlantPhoto(
   final ref = store.col('plantPhotos').doc();
   await writeInBackground(
     ref.set({
-      'plantId': plant.id,
+      'plantId': plantId,
       'takenAt': writeDate(takenAt),
       'image': Blob(bytes),
       'createdBy': store.uid,
@@ -115,9 +115,35 @@ Future<void> addPlantPhoto(
     }),
   );
   if (latest == null || !dateOnly(takenAt).isBefore(dateOnly(latest))) {
-    await store.update('care', plant.id, {'photoId': ref.id});
+    await store.update('care', plantId, {'photoId': ref.id});
   }
 }
+
+/// Fragt: Kamera oder Galerie?
+Future<ImageSource?> pickPhotoSource(
+  BuildContext context, {
+  String? gallerySubtitle,
+}) => showModalBottomSheet<ImageSource>(
+  context: context,
+  builder: (context) => SafeArea(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.photo_camera_outlined),
+          title: const Text('Foto aufnehmen'),
+          onTap: () => Navigator.pop(context, ImageSource.camera),
+        ),
+        ListTile(
+          leading: const Icon(Icons.photo_library_outlined),
+          title: const Text('Aus der Galerie'),
+          subtitle: gallerySubtitle == null ? null : Text(gallerySubtitle),
+          onTap: () => Navigator.pop(context, ImageSource.gallery),
+        ),
+      ],
+    ),
+  ),
+);
 
 Future<void> deletePlantPhoto(
   HouseholdStore store,
@@ -403,26 +429,9 @@ class PlantProfileScreen extends ConsumerWidget {
     CareItem plant,
     PlantPhoto? latest,
   ) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Foto aufnehmen'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Aus der Galerie'),
-              subtitle: const Text('Auch ältere Fotos, mit Datum'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
+    final source = await pickPhotoSource(
+      context,
+      gallerySubtitle: 'Auch ältere Fotos, mit Datum',
     );
     if (source == null || !context.mounted) return;
     final Uint8List? bytes;
@@ -451,7 +460,7 @@ class PlantProfileScreen extends ConsumerWidget {
     }
     await addPlantPhoto(
       ref.read(storeProvider(householdId)),
-      plant,
+      plant.id,
       bytes,
       takenAt,
       latest: latest?.takenAt,

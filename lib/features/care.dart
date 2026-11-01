@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +7,7 @@ import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
+import 'plant_identify.dart';
 import 'plants.dart';
 
 enum CareKind {
@@ -240,6 +243,10 @@ class _CareEditScreenState extends ConsumerState<CareEditScreen> {
   late String _light = _c?.light ?? '';
   late DateTime? _since = _c?.since;
 
+  /// Foto aus der Erkennung, wird bei neuen Pflanzen das erste Profilfoto.
+  Uint8List? _photo;
+  bool _identifying = false;
+
   @override
   void dispose() {
     for (final c in [
@@ -275,7 +282,10 @@ class _CareEditScreenState extends ConsumerState<CareEditScreen> {
       );
     }
     final plant = _kind == CareKind.plant;
-    await ref.read(storeProvider(widget.householdId)).save('care', _c?.id, {
+    final store = ref.read(storeProvider(widget.householdId));
+    final photo = plant && _c == null ? _photo : null;
+    final newId = photo == null ? null : store.newId('care');
+    final data = {
       'name': name,
       'kind': _kind.name,
       'action': _action.text.trim().isEmpty ? 'Pflegen' : _action.text.trim(),
@@ -290,8 +300,81 @@ class _CareEditScreenState extends ConsumerState<CareEditScreen> {
         'notes': _notes.text.trim(),
         'since': writeDate(_since),
       },
-    });
+    };
+    if (newId != null) {
+      await store.add('care', data, id: newId);
+      await addPlantPhoto(store, newId, photo!, today());
+    } else {
+      await store.save('care', _c?.id, data);
+    }
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Foto machen, Art erkennen lassen und das Profil vorausfüllen.
+  Future<void> _identify() async {
+    final source = await pickPhotoSource(context);
+    if (source == null || !mounted) return;
+    final Uint8List? bytes;
+    try {
+      bytes = await ref.read(plantPhotoPickerProvider)(source);
+    } catch (e) {
+      if (mounted) showError(context, 'Foto ging nicht: $e');
+      return;
+    }
+    if (bytes == null || !mounted) return;
+    setState(() => _identifying = true);
+    List<PlantSuggestion> suggestions;
+    try {
+      suggestions = await ref.read(plantIdentifierProvider)(
+        widget.householdId,
+        bytes,
+      );
+    } on PlantIdentifyException catch (e) {
+      if (mounted) {
+        setState(() => _identifying = false);
+        showError(context, e.message);
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _identifying = false);
+    final picked = await showPlantSuggestions(context, bytes, suggestions);
+    if (picked == null || !mounted) return;
+    _apply(picked, bytes);
+  }
+
+  void _apply(PlantSuggestion s, Uint8List photo) {
+    final hint = s.careHint;
+    void fill(TextEditingController c, String value) {
+      if (c.text.trim().isEmpty && value.isNotEmpty) c.text = value;
+    }
+
+    setState(() {
+      if (photo.length <= maxPhotoBytes) _photo = photo;
+      fill(_name, s.displayName);
+      _species.text = s.scientificName;
+      if (hint != null) {
+        // Nur Felder, die noch leer bzw. auf dem Standard stehen.
+        if (_c == null || _interval.text.trim() == '7') {
+          _interval.text = '${hint.intervalDays}';
+        }
+        if (_light.isEmpty) _light = hint.light;
+        fill(_waterNote, hint.waterNote);
+        if (hint.fertilizeDays > 0) {
+          fill(_fertilizeDays, '${hint.fertilizeDays}');
+          fill(_fertilizeNote, hint.fertilizeNote);
+        }
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          hint == null
+              ? '${s.displayName} eingetragen. Pflegetipps bitte selbst ergänzen.'
+              : '${s.displayName} mit Pflegetipps eingetragen. Schau kurz drüber.',
+        ),
+      ),
+    );
   }
 
   TextField _text(
@@ -353,6 +436,41 @@ class _CareEditScreenState extends ConsumerState<CareEditScreen> {
             }
           }),
         ),
+        if (plant)
+          FilledButton.tonalIcon(
+            onPressed: _identifying ? null : _identify,
+            icon: _identifying
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.center_focus_strong_outlined),
+            label: Text(
+              _identifying ? 'Wird erkannt …' : 'Pflanze per Foto erkennen',
+            ),
+          ),
+        if (plant && _photo != null)
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(
+                  _photo!,
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  c == null
+                      ? 'Das Foto kommt als erstes Bild ins Profil.'
+                      : 'Erkannt anhand dieses Fotos.',
+                ),
+              ),
+            ],
+          ),
         TextField(
           controller: _name,
           autofocus: c == null,

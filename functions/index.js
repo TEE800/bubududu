@@ -3,6 +3,7 @@
 // Braucht den Blaze-Tarif in Firebase. Wird von GitHub Actions veröffentlicht.
 import { SkillRequestSignatureVerifier, TimestampVerifier } from 'ask-sdk-express-adapter';
 import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { logger } from 'firebase-functions';
@@ -10,6 +11,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { handleAlexa, MAX_CODE_ATTEMPTS } from './alexa.js';
 import { messageFor } from './messages.js';
+import { identify } from './plantnet.js';
 
 initializeApp();
 const db = getFirestore();
@@ -146,3 +148,43 @@ export const alexa = onRequest({ region: 'europe-west3' }, async (req, res) => {
   }
   res.json(await handleAlexa(envelope, alexaStore));
 });
+
+// Pflanzenerkennung per Foto für die App (Mitglieder eines Haushalts).
+// POST {householdId, image: Base64-JPEG}, Header Authorization: Bearer <ID-Token>.
+export const identifyPlant = onRequest(
+  { region: 'europe-west3', cors: true, memory: '256MiB', timeoutSeconds: 30 },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'method' });
+      return;
+    }
+    const token = (req.get('Authorization') ?? '').replace(/^Bearer /, '');
+    let uid;
+    try {
+      uid = (await getAuth().verifyIdToken(token)).uid;
+    } catch {
+      res.status(401).json({ error: 'auth' });
+      return;
+    }
+    const { householdId, image } = req.body ?? {};
+    if (typeof householdId !== 'string' || !householdId || typeof image !== 'string') {
+      res.status(400).json({ error: 'bad-request' });
+      return;
+    }
+    const household = (await db.doc(`households/${householdId}`).get()).data();
+    if (!household?.members?.includes(uid)) {
+      res.status(403).json({ error: 'household' });
+      return;
+    }
+    try {
+      const result = await identify(Buffer.from(image, 'base64'), {
+        apiKey: process.env.PLANTNET_API_KEY,
+      });
+      if (result.status >= 500) logger.warn('Pflanzenerkennung', result.body);
+      res.status(result.status).json(result.body);
+    } catch (e) {
+      logger.error('Pflanzenerkennung fehlgeschlagen', e);
+      res.status(502).json({ error: 'upstream' });
+    }
+  },
+);
