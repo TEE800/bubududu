@@ -14,6 +14,7 @@ import '../widgets/mascots.dart';
 import 'calendar.dart';
 import 'care.dart';
 import 'contracts.dart';
+import 'dashboard_layout.dart';
 import 'depot.dart';
 import 'finance.dart';
 import 'health.dart';
@@ -66,6 +67,7 @@ class DashboardScreen extends ConsumerWidget {
         : now.hour < 18
         ? 'Hallo'
         : 'Guten Abend';
+    final layout = ref.watch(dashLayoutProvider).value ?? DashLayout.standard;
 
     return Scaffold(
       appBar: AppBar(
@@ -107,19 +109,46 @@ class DashboardScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            _AktionstageCard(now: now),
-            _WeatherCard(householdId: householdId),
-            _TodayCard(householdId: householdId, onOpenTab: onOpenTab),
-            _UpcomingCard(householdId: householdId, onOpenTab: onOpenTab),
-            _ShoppingCard(householdId: householdId, onOpenTab: onOpenTab),
-            _MealCard(householdId: householdId, onOpenPage: onOpenPage),
-            _MoneyCard(householdId: householdId, onOpenPage: onOpenPage),
-            _RemindersCard(householdId: householdId, onOpenPage: onOpenPage),
-            _HealthCard(householdId: householdId, onOpenPage: onOpenPage),
-            _DepotCard(onOpenPage: onOpenPage),
-            _StocksCard(householdId: householdId),
-            TogetherCard(householdId: householdId),
-            _LocationCard(householdId: householdId, onOpenPage: onOpenPage),
+            for (final tile in layout.visible)
+              switch (tile) {
+                DashTile.aktionstage => _AktionstageCard(now: now),
+                DashTile.weather => _WeatherCard(householdId: householdId),
+                DashTile.today => _TodayCard(
+                  householdId: householdId,
+                  onOpenTab: onOpenTab,
+                ),
+                DashTile.upcoming => _UpcomingCard(
+                  householdId: householdId,
+                  onOpenTab: onOpenTab,
+                ),
+                DashTile.shopping => _ShoppingCard(
+                  householdId: householdId,
+                  onOpenTab: onOpenTab,
+                ),
+                DashTile.meal => _MealCard(
+                  householdId: householdId,
+                  onOpenPage: onOpenPage,
+                ),
+                DashTile.money => _MoneyCard(
+                  householdId: householdId,
+                  onOpenPage: onOpenPage,
+                ),
+                DashTile.reminders => _RemindersCard(
+                  householdId: householdId,
+                  onOpenPage: onOpenPage,
+                ),
+                DashTile.health => _HealthCard(
+                  householdId: householdId,
+                  onOpenPage: onOpenPage,
+                ),
+                DashTile.depot => _DepotCard(onOpenPage: onOpenPage),
+                DashTile.stocks => _StocksCard(householdId: householdId),
+                DashTile.together => TogetherCard(householdId: householdId),
+                DashTile.location => _LocationCard(
+                  householdId: householdId,
+                  onOpenPage: onOpenPage,
+                ),
+              },
           ],
         ),
       ),
@@ -844,6 +873,17 @@ class _DashboardSettingsScreenState
         padding: const EdgeInsets.all(16),
         children: [
           if (_searching) const LinearProgressIndicator(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.dashboard_customize_outlined),
+            title: const Text('Kacheln auswählen & sortieren'),
+            subtitle: const Text('Was auf deiner Startseite steht, und wo'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const DashLayoutScreen())),
+          ),
+          const SizedBox(height: 24),
           Text('Wetter', style: Theme.of(context).textTheme.titleMedium),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
