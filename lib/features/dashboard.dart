@@ -11,6 +11,7 @@ import '../util/dates.dart';
 import '../util/money.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
+import 'aktionstag_sheet.dart';
 import 'calendar.dart';
 import 'care.dart';
 import 'contracts.dart';
@@ -242,52 +243,6 @@ class _AktionstageCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Zeigt die Infos zu einem Aktionstag in einem Blatt von unten.
-Future<void> showAktionstag(BuildContext context, Aktionstag t, DateTime day) {
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (context) {
-      final theme = Theme.of(context);
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(t.name, style: theme.textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  Chip(
-                    avatar: Icon(
-                      t.witzig
-                          ? Icons.sentiment_very_satisfied_outlined
-                          : Icons.public,
-                      size: 18,
-                    ),
-                    label: Text(t.witzig ? 'Zum Schmunzeln' : 'Zum Nachdenken'),
-                  ),
-                  Chip(
-                    avatar: const Icon(Icons.event, size: 18),
-                    label: Text(formatDate(day)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(t.info, style: theme.textTheme.bodyLarge),
-            ],
-          ),
-        ),
-      );
-    },
-  );
 }
 
 class _WeatherCard extends ConsumerWidget {

@@ -1,3 +1,4 @@
+import 'aktionstage_extras.dart';
 import 'dates.dart';
 
 /// Ein Aktionstag, Gedenktag oder Feiertag. [witzig] trennt die Tage zum
@@ -8,6 +9,12 @@ class Aktionstag {
   final String name;
   final String info;
   final bool witzig;
+
+  /// Was man zu zweit aus dem Tag machen kann.
+  String? get idee => aktionstagIdeen[name];
+
+  /// Titel des Wikipedia-Artikels mit dem Hintergrund.
+  String get wikiTitel => aktionstagWiki[name] ?? name;
 
   @override
   String toString() => name;

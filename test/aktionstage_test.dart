@@ -1,6 +1,16 @@
+import 'dart:convert';
+
+import 'package:bubududu/features/aktionstag_sheet.dart';
+import 'package:bubududu/services/weather.dart';
+import 'package:bubududu/services/wikipedia.dart';
 import 'package:bubududu/util/aktionstage.dart';
+import 'package:bubududu/util/aktionstage_extras.dart';
 import 'package:bubududu/util/dates.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 List<String> namen(DateTime d) => aktionstageAm(d).map((t) => t.name).toList();
 
@@ -84,6 +94,127 @@ void main() {
         day = addDays(day, 1);
       }
       expect(leer, lessThan(120));
+    });
+  });
+
+  group('Zusätze', () {
+    test('Ideen und Wikipedia-Titel gehören zu echten Tagen', () {
+      final names = <String>{};
+      var day = DateTime(2028, 1, 1);
+      while (day.year == 2028) {
+        names.addAll(aktionstageAm(day).map((t) => t.name));
+        day = addDays(day, 1);
+      }
+      for (final n in [...aktionstagIdeen.keys, ...aktionstagWiki.keys]) {
+        expect(names, contains(n));
+      }
+      // Fast jeder Tag hat eine Idee.
+      final ohne = names.where((n) => !aktionstagIdeen.containsKey(n));
+      expect(ohne, isEmpty);
+    });
+  });
+
+  group('Wikipedia', () {
+    Map<String, Object> page(String title, String extract) => {
+      'query': {
+        'pages': [
+          {
+            'title': title,
+            'extract': extract,
+            'fullurl': 'https://de.wikipedia.org/wiki/$title',
+          },
+        ],
+      },
+    };
+    final missing = {
+      'query': {
+        'pages': [
+          {'title': 'x', 'missing': true},
+        ],
+      },
+    };
+    const lang = 'Ein ausreichend langer Einleitungstext über das Thema.';
+
+    test('genauer Titel', () async {
+      final client = MockClient((r) async {
+        expect(r.url.host, 'de.wikipedia.org');
+        expect(r.url.queryParameters['titles'], 'Trinkhalm');
+        return http.Response(jsonEncode(page('Trinkhalm', lang)), 200);
+      });
+      final a = await fetchWikiArticle(
+        client,
+        'Trinkhalm',
+        name: 'Tag des Strohhalms',
+      );
+      expect(a?.title, 'Trinkhalm');
+      expect(a?.url, contains('wikipedia.org'));
+    });
+
+    test('Suche nur mit passendem Treffer', () async {
+      Future<WikiArticle?> run(String hitTitle) => fetchWikiArticle(
+        MockClient((r) async {
+          if (r.url.queryParameters.containsKey('titles')) {
+            return http.Response(jsonEncode(missing), 200);
+          }
+          return http.Response(jsonEncode(page(hitTitle, lang)), 200);
+        }),
+        'Tag des Croissants',
+      );
+      expect((await run('Croissant'))?.title, 'Croissant');
+      expect(await run('Frankreich'), isNull);
+    });
+
+    test('Begriffsklärung wird übersprungen', () async {
+      final client = MockClient(
+        (r) async => http.Response(
+          jsonEncode({
+            'query': {
+              'pages': [
+                {
+                  'title': 'Hut',
+                  'extract': lang,
+                  'pageprops': {'disambiguation': ''},
+                },
+              ],
+            },
+          }),
+          200,
+        ),
+      );
+      expect(await fetchWikiArticle(client, 'Hut'), isNull);
+    });
+
+    test('Text wird auf ganze Absätze gekürzt', () {
+      final text = List.filled(10, 'a' * 400).join('\n');
+      final short = shortenExtract(text);
+      expect(short.length, lessThanOrEqualTo(1500));
+      expect(short.split('\n\n').every((p) => p.length == 400), isTrue);
+    });
+
+    testWidgets('Infoblatt zeigt Idee und Hintergrund', (tester) async {
+      final client = MockClient(
+        (r) async => http.Response(jsonEncode(page('Halloween', lang)), 200),
+      );
+      final halloween = aktionstageAm(DateTime(2026, 10, 31))
+          .firstWhere((t) => t.name == 'Halloween');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [httpClientProvider.overrideWithValue(client)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: AktionstagDetails(
+                tag: halloween,
+                day: DateTime(2026, 10, 31),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Idee für euch zwei'), findsOneWidget);
+      expect(find.textContaining('Kürbis schnitzen'), findsOneWidget);
+      expect(find.text(lang), findsOneWidget);
+      expect(find.text('Bei Wikipedia weiterlesen'), findsOneWidget);
     });
   });
 }
