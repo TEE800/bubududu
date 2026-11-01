@@ -185,6 +185,83 @@ String _cleanIngredient(String l) {
   return s.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+/// Fügt die Zeilen mehrerer Bilder eines Rezepts (z. B. Screenshots beim
+/// Herunterscrollen) in Reihenfolge zusammen. Was ein Bild mit dem vorigen
+/// doppelt zeigt, wird nur einmal übernommen, samt der Leiste oben im
+/// Folgebild, die vor dem doppelten Stück steht.
+List<OcrLine> mergeOcrPages(List<List<OcrLine>> pages) {
+  final merged = <OcrLine>[];
+  for (final page in pages) {
+    final lines = [
+      for (final l in page)
+        if (l.text.trim().isNotEmpty && !_isNoise(l.text.trim())) l,
+    ];
+    if (merged.isEmpty) {
+      merged.addAll(lines);
+      continue;
+    }
+    final overlap = _findOverlap(merged, lines);
+    if (overlap == null) {
+      merged.addAll(lines);
+    } else {
+      merged.removeRange(overlap.prevEnd, merged.length);
+      merged.addAll(lines.sublist(overlap.nextStart));
+    }
+  }
+  return merged;
+}
+
+String _key(String t) =>
+    t.toLowerCase().replaceAll(RegExp(r'[^a-z0-9äöüß½¼¾⅓⅔]'), '');
+
+/// Sucht das längste Stück, mit dem [next] (nahe am Anfang) das Ende von
+/// [prev] wiederholt. Ergebnis: ab [prevEnd] wird [prev] abgeschnitten (dort
+/// stand nur noch Leiste oder ein angeschnittener Rest, den [next] ganz
+/// zeigt), ab [nextStart] geht es mit [next] weiter.
+({int prevEnd, int nextStart})? _findOverlap(
+  List<OcrLine> prev,
+  List<OcrLine> next,
+) {
+  final p = [for (final l in prev) _key(l.text)];
+  final n = [for (final l in next) _key(l.text)];
+  ({int prevEnd, int nextStart})? best;
+  var bestChars = 0;
+  // Bis zu 4 Zeilen Leiste/Anschnitt am Ende von prev, bis zu 15 Zeilen
+  // Kopfleiste am Anfang von next.
+  for (var e = p.length; e >= p.length - 4 && e > 0; e--) {
+    for (var s = 0; s < n.length && s < 15; s++) {
+      final run = _runLength(p, n, e, s);
+      if (run == 0) continue;
+      var chars = 0;
+      for (var i = 0; i < run; i++) {
+        chars += n[s + i].length;
+      }
+      // Eine einzelne kurze Zeile wie "1 Ei" reicht nicht als Beweis.
+      if ((run >= 2 || chars >= 20) && chars > bestChars) {
+        bestChars = chars;
+        best = (prevEnd: e, nextStart: s + run);
+      }
+    }
+  }
+  return best;
+}
+
+/// Länge k, für die p[e-k..e) == n[s..s+k) gilt (größtes k).
+int _runLength(List<String> p, List<String> n, int e, int s) {
+  final maxK = [e, n.length - s].reduce((a, b) => a < b ? a : b);
+  for (var k = maxK; k > 0; k--) {
+    var ok = true;
+    for (var i = 0; i < k; i++) {
+      if (p[e - k + i] != n[s + i] || p[e - k + i].isEmpty) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return k;
+  }
+  return 0;
+}
+
 RecipeDraft parseRecipeText(String text) =>
     parseRecipeLines([for (final l in text.split('\n')) OcrLine(l)]);
 
