@@ -117,6 +117,17 @@ Einmalig einrichten:
 Die Funktion nimmt nur Anfragen von diesem Skill an (Skill-ID in `functions/.env`). Wird der Skill
 neu angelegt, dort die neue ID (amzn1.ask.skill…) eintragen.
 
+## Pflanzenerkennung
+
+Beim Anlegen einer Pflanze erkennt **Pflanze per Foto erkennen** die Art über
+[Pl@ntNet](https://my.plantnet.org) (kostenlos, bis 500 Erkennungen am Tag) und füllt Name, Art und
+Pflegetipps vor (`lib/util/plant_care_hints.dart`). Die Anfrage läuft über die Funktion
+`identifyPlant` in `functions/`, damit der Schlüssel nicht in der App steckt.
+
+Einmalig: auf my.plantnet.org kostenlos registrieren, unter **Settings → API key** den Schlüssel kopieren
+und in GitHub unter **Settings → Secrets and variables → Actions → New repository secret** als
+`PLANTNET_API_KEY` speichern. Beim nächsten Veröffentlichen landet er in der Funktion.
+
 ## Google-Kalender
 
 Unter **Mehr → Einstellungen → Kalender** „Termine in meinen Google-Kalender“ einschalten und den

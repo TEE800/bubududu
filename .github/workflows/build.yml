@@ -101,6 +101,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      # Schlüssel für die Pflanzenerkennung (my.plantnet.org), optional.
+      PLANTNET_API_KEY: ${{ secrets.PLANTNET_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         if: env.FIREBASE_SERVICE_ACCOUNT != ''
@@ -113,6 +115,9 @@ jobs:
         run: |
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase.json"
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          if [ -n "$PLANTNET_API_KEY" ]; then
+            printf '\nPLANTNET_API_KEY=%s\n' "$PLANTNET_API_KEY" >> functions/.env
+          fi
           (cd functions && npm ci)
           npx --yes firebase-tools@14 deploy --only firestore:rules,functions \
             --project bubududu-15f3f --non-interactive --force

@@ -68,14 +68,21 @@ class HouseholdStore {
       _db.collection('households/$householdId/$name');
 
   // Alle Schreibzugriffe warten nicht auf den Server, siehe offline.dart.
-  Future<void> add(String collection, Map<String, dynamic> data) =>
-      writeInBackground(
-        col(collection).doc().set({
-          ...data,
-          'createdBy': uid,
-          'createdAt': FieldValue.serverTimestamp(),
-        }),
-      );
+  /// [id] gibt die neue Dokument-ID vor (siehe [newId]).
+  Future<void> add(
+    String collection,
+    Map<String, dynamic> data, {
+    String? id,
+  }) => writeInBackground(
+    col(collection).doc(id).set({
+      ...data,
+      'createdBy': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    }),
+  );
+
+  /// Eine freie ID, z. B. um gleich nach dem Anlegen Fotos anzuhängen.
+  String newId(String collection) => col(collection).doc().id;
 
   Future<void> update(
     String collection,
