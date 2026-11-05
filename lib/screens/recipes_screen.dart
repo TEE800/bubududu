@@ -138,14 +138,18 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
       body: recipes.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Fehler: $e', style: const TextStyle(color: Colors.white)),
+          child: Text(
+            'Fehler: $e',
+            style: const TextStyle(color: Colors.white),
+          ),
         ),
         data: (list) {
           if (list.isEmpty) {
             return const _BookPage(
               child: EmptyHint(
                 icon: Icons.menu_book_outlined,
-                text: 'Euer Kochbuch ist noch leer. Legt euer erstes Rezept an!',
+                text:
+                    'Euer Kochbuch ist noch leer. Legt euer erstes Rezept an!',
                 mood: MascotMood.hungry,
               ),
             );
@@ -273,7 +277,11 @@ class _BookPage extends StatelessWidget {
           color: _paper,
           borderRadius: radius,
           boxShadow: [
-            BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(2, 4)),
+            BoxShadow(
+              color: Colors.black45,
+              blurRadius: 12,
+              offset: Offset(2, 4),
+            ),
             // Angedeutete Seiten darunter
             BoxShadow(color: Color(0xFFE9E0CC), offset: Offset(4, 3)),
             BoxShadow(color: Color(0xFFDCD1B8), offset: Offset(7, 6)),
@@ -675,25 +683,20 @@ Future<void> _scanRecipe(BuildContext context, String householdId) async {
 
   if (error != null) {
     messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Die Bilder konnten nicht gelesen werden.'),
-      ),
+      const SnackBar(content: Text('Die Bilder konnten nicht gelesen werden.')),
     );
     return;
   }
   final draft = parseRecipeLines(lines!);
   if (draft.isEmpty) {
     messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Auf den Bildern wurde kein Text erkannt.'),
-      ),
+      const SnackBar(content: Text('Auf den Bildern wurde kein Text erkannt.')),
     );
     return;
   }
   navigator.push(
     MaterialPageRoute(
-      builder: (_) =>
-          RecipeEditScreen(householdId: householdId, draft: draft),
+      builder: (_) => RecipeEditScreen(householdId: householdId, draft: draft),
     ),
   );
 }
@@ -876,8 +879,7 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
               .toList(),
           instructions: _instructions.text.trim(),
           uid: ref.read(uidProvider),
-          resetImage:
-              widget.recipe != null && widget.recipe!.title != title,
+          resetImage: widget.recipe != null && widget.recipe!.title != title,
         );
     if (mounted) Navigator.of(context).pop();
   }

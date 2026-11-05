@@ -12,6 +12,7 @@ import '../util/dates.dart';
 import '../widgets/common.dart';
 import '../widgets/item_icon.dart';
 import '../widgets/mascots.dart';
+import 'pantry_auto_shop.dart';
 
 enum StockLevel {
   full('Genug da'),
@@ -56,6 +57,9 @@ class PantryItem {
     this.usesAt,
     this.autoAmount = 0,
     this.autoUnit = AutoUnit.day,
+    this.shopRule = ShopRule.standard,
+    this.shopAt,
+    this.autoShopped = false,
   });
 
   final String id;
@@ -68,6 +72,17 @@ class PantryItem {
   final DateTime? usesAt;
   final double autoAmount;
   final AutoUnit autoUnit;
+
+  /// Ab wann es von selbst auf die Einkaufsliste kommt.
+  final ShopRule shopRule;
+
+  /// Bei [ShopRule.uses]: ab so vielen übrigen Nutzungen.
+  final int? shopAt;
+
+  /// Steht schon (automatisch) auf der Einkaufsliste. Wird erst wieder
+  /// zurückgesetzt, wenn der Vorrat aufgefüllt ist, damit nichts doppelt
+  /// oder nach dem Abhaken erneut auf der Liste landet.
+  final bool autoShopped;
 
   bool get countsUses => (uses ?? 0) > 0;
   bool get autoUses => countsUses && autoAmount > 0;
@@ -128,7 +143,61 @@ class PantryItem {
     usesAt: readDate(d.data['usesAt']),
     autoAmount: (d.data['autoAmount'] as num?)?.toDouble() ?? 0,
     autoUnit: AutoUnit.parse(d.data['autoUnit'] as String?),
+    shopRule: ShopRule.parse(d.data['shopRule'] as String?),
+    shopAt: (d.data['shopAt'] as num?)?.toInt(),
+    autoShopped: d.data['autoShopped'] == true,
   );
+
+  /// Soll es jetzt (bei der Grundeinstellung [all]) auf die Einkaufsliste?
+  bool wantsShopping(DateTime now, ShopDefault all) {
+    final level = levelAt(now);
+    return switch (shopRule) {
+      ShopRule.never => false,
+      ShopRule.low => level != StockLevel.full,
+      ShopRule.empty => level == StockLevel.empty,
+      ShopRule.uses =>
+        countsUses && shopAt != null
+            ? remaining(now) <= shopAt!
+            : level != StockLevel.full,
+      ShopRule.standard => switch (all) {
+        ShopDefault.off => false,
+        ShopDefault.low => level != StockLevel.full,
+        ShopDefault.empty => level == StockLevel.empty,
+      },
+    };
+  }
+}
+
+/// Für alle Vorräte: ab wann sie von selbst auf die Einkaufsliste kommen.
+/// Liegt in households/{id}/settings/pantry, gilt für beide.
+enum ShopDefault {
+  off('Aus', 'Nur über den Knopf „fehlende Vorräte auf die Einkaufsliste“'),
+  low('Sobald etwas knapp wird', 'Bei „Wird knapp“ oder leer'),
+  empty('Erst wenn etwas leer ist', 'Bei „Leer“ oder 0 übrig');
+
+  const ShopDefault(this.label, this.hint);
+  final String label;
+  final String hint;
+
+  static ShopDefault parse(String? name) =>
+      ShopDefault.values.where((v) => v.name == name).firstOrNull ??
+      ShopDefault.off;
+}
+
+/// Für einen einzelnen Vorrat, abweichend von der Grundeinstellung.
+enum ShopRule {
+  standard('Wie für alle eingestellt'),
+  low('Sobald es knapp wird'),
+  empty('Erst wenn es leer ist'),
+  uses('Bei einer bestimmten Restmenge'),
+  never('Nie automatisch');
+
+  const ShopRule(this.label);
+  final String label;
+
+  static ShopRule parse(String? name) =>
+      ShopRule.values.where((v) => v.name == name).firstOrNull ??
+      ShopRule.standard;
 }
 
 /// Leer bei 0, knapp ab einem Fünftel (mindestens bei 1 übrig).
@@ -291,6 +360,8 @@ class PantryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(pantryProvider(householdId));
     final sort = ref.watch(pantrySortProvider);
+    final shopDefault =
+        ref.watch(shopDefaultProvider(householdId)).value ?? ShopDefault.off;
     final store = ref.read(storeProvider(householdId));
     final now = DateTime.now();
 
@@ -342,6 +413,28 @@ class PantryScreen extends ConsumerWidget {
                   selected: {sort},
                   onSelectionChanged: (s) =>
                       ref.read(pantrySortProvider.notifier).set(s.first),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+              sliver: SliverToBoxAdapter(
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(
+                    shopDefault == ShopDefault.off
+                        ? Icons.remove_shopping_cart_outlined
+                        : Icons.playlist_add_check,
+                  ),
+                  title: const Text('Automatisch auf die Einkaufsliste'),
+                  subtitle: Text(shopDefault.label),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => showShopDefaultSheet(
+                    context,
+                    ref,
+                    householdId,
+                    shopDefault,
+                  ),
                 ),
               ),
             ),
@@ -645,6 +738,10 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
         : '1',
   );
   late AutoUnit _autoUnit = widget.item?.autoUnit ?? AutoUnit.day;
+  late ShopRule _shopRule = widget.item?.shopRule ?? ShopRule.standard;
+  late final _shopAt = TextEditingController(
+    text: widget.item?.shopAt?.toString() ?? '1',
+  );
 
   @override
   void dispose() {
@@ -653,6 +750,7 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
     _uses.dispose();
     _left.dispose();
     _autoAmount.dispose();
+    _shopAt.dispose();
     super.dispose();
   }
 
@@ -715,6 +813,19 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
     if (name.isEmpty) return showError(context, 'Bitte gib einen Namen ein.');
     final uses = _usesFields();
     if (uses == null) return;
+    var rule = _shopRule;
+    if (rule == ShopRule.uses && !_countUses) rule = ShopRule.low;
+    int? shopAt;
+    if (rule == ShopRule.uses) {
+      shopAt = int.tryParse(_shopAt.text.trim());
+      if (shopAt == null || shopAt < 0) {
+        return showError(
+          context,
+          'Bitte gib an, bei wie vielen übrigen Nutzungen es auf die '
+          'Einkaufsliste soll.',
+        );
+      }
+    }
     await ref.read(storeProvider(widget.householdId)).save(
       'pantry',
       widget.item?.id,
@@ -724,6 +835,8 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
         'level': _level.name,
         'bestBefore': writeDate(_bestBefore),
         ...uses,
+        'shopRule': rule.name,
+        'shopAt': shopAt,
       },
     );
     if (mounted) Navigator.of(context).pop();
@@ -866,6 +979,30 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
             ),
           ],
         ],
+        DropdownButtonFormField<ShopRule>(
+          initialValue: _shopRule == ShopRule.uses && !_countUses
+              ? ShopRule.low
+              : _shopRule,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Automatisch auf die Einkaufsliste',
+          ),
+          items: [
+            for (final r in ShopRule.values)
+              if (r != ShopRule.uses || _countUses)
+                DropdownMenuItem(value: r, child: Text(r.label)),
+          ],
+          onChanged: (r) => setState(() => _shopRule = r ?? _shopRule),
+        ),
+        if (_shopRule == ShopRule.uses && _countUses)
+          TextField(
+            controller: _shopAt,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Auf die Liste, wenn nur noch so viele übrig sind',
+              hintText: 'z. B. 2',
+            ),
+          ),
       ],
     );
   }
