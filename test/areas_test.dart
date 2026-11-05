@@ -243,7 +243,7 @@ void main() {
     testWidgets('Vorrat anlegen', (tester) async {
       await pumpPage(tester, const PantryEditScreen(householdId: 'h1'));
       await fill(tester, 'Was?', 'Reis');
-      await fill(tester, 'Raum (optional)', 'Keller');
+      await fill(tester, 'Zimmer (optional)', 'Keller');
       await save(tester);
       final rice = (await docs('pantry'))
           .firstWhere((p) => p['name'] == 'Reis');
@@ -294,6 +294,8 @@ void main() {
       await pumpPage(tester, const PantryScreen(householdId: 'h1'));
       await settle(tester);
       expect(find.textContaining('noch 10 von 10'), findsOneWidget);
+      await tester.ensureVisible(find.byTooltip('Einmal benutzt'));
+      await settle(tester);
       await tester.tap(find.byTooltip('Einmal benutzt'));
       await settle(tester);
       final bath = (await docs('pantry'))
