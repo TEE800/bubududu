@@ -68,7 +68,8 @@ void main() {
           onOpenPage: (_) {},
         ),
       );
-      expect(find.text('Einkaufsliste'), findsOneWidget);
+      // Einkauf steht oben als kleine Kachel.
+      expect(find.text('zum Einkaufen'), findsOneWidget);
       expect(find.textContaining('Wetter'), findsNothing);
     });
 
