@@ -43,6 +43,25 @@ List<Aktionstag> aktionstageAm(DateTime day) {
   return null;
 }
 
+/// Was die Startseite zeigt: immer einen ernsten und einen witzigen Tag.
+/// Gibt es heute keinen von einer Art, kommt der nächste dieser Art (höchstens
+/// ein Jahr voraus). Fallen heute mehrere an, kommen alle von heute.
+List<(DateTime, Aktionstag)> aktionstageFuerStartseite(DateTime day) {
+  final today = dateOnly(day);
+  final result = <(DateTime, Aktionstag)>[];
+  for (final witzig in [false, true]) {
+    for (var i = 0; i <= 366; i++) {
+      final d = addDays(today, i);
+      final passend = aktionstageAm(d).where((t) => t.witzig == witzig);
+      if (passend.isNotEmpty) {
+        result.addAll(passend.map((t) => (d, t)));
+        break;
+      }
+    }
+  }
+  return result;
+}
+
 const _w = true;
 const _s = false;
 
@@ -2299,6 +2318,224 @@ const List<(int, int, bool, String, String)> _fest = [
     _w,
     'Silvester',
     'Der letzte Tag des Jahres, benannt nach Papst Silvester I. Bleigießen, Dinner for One und um Mitternacht anstoßen!',
+  ),
+  // Nachgetragen: witzige Tage, damit neben jedem ernsten einer zum Schmunzeln steht.
+  (
+    11,
+    6,
+    _w,
+    'Tag des Saxophons',
+    'Am 6. November 1814 wurde Adolphe Sax geboren, der Erfinder des Saxophons. Ohne ihn gäbe es kein "Careless Whisper".',
+  ),
+  (
+    11,
+    8,
+    _w,
+    'Tag des Cappuccinos',
+    'In den USA wird heute der Cappuccino gefeiert. Der Name kommt von der braunen Kutte der Kapuzinermönche.',
+  ),
+  (
+    11,
+    9,
+    _w,
+    'Tag der Erfinder',
+    'Am Geburtstag der Schauspielerin und Erfinderin Hedy Lamarr (1914) werden in Deutschland, Österreich und der Schweiz Erfinderinnen und Erfinder gefeiert. Ihre Idee steckt heute in WLAN und Bluetooth.',
+  ),
+  (
+    11,
+    10,
+    _w,
+    'Tag des Vanille-Cupcakes',
+    'Ein amerikanischer Tag für die kleinen Törtchen mit Sahnehaube. Ein Grund zum Backen reicht ja.',
+  ),
+  (
+    11,
+    12,
+    _w,
+    'Tag der Pizza mit allem',
+    'Heute kommt alles drauf, was der Kühlschrank hergibt. Der Tag stammt aus den USA.',
+  ),
+  (
+    11,
+    14,
+    _w,
+    'Tag der sauren Gurke',
+    'In den USA wird heute die Essiggurke gefeiert. Sie ist seit über 4000 Jahren bekannt.',
+  ),
+  (
+    11,
+    15,
+    _w,
+    'Tag des Kühlschrankputzens',
+    'Kurz vor den Feiertagen soll der Kühlschrank leer und sauber werden, damit Platz für das Festessen ist.',
+  ),
+  (
+    11,
+    16,
+    _w,
+    'Tag des Fast Foods',
+    'Ein Tag für Burger, Pommes und Co. Einmal im Jahr ist erlaubt.',
+  ),
+  (
+    11,
+    17,
+    _w,
+    'Tag des selbstgebackenen Brotes',
+    'Nichts riecht besser als frisches Brot aus dem eigenen Ofen. Heute ist der Tag, es mal wieder zu versuchen.',
+  ),
+  (
+    11,
+    18,
+    _w,
+    'Geburtstag von Micky Maus',
+    'Am 18. November 1928 lief "Steamboat Willie" im Kino an, der erste Tonfilm mit Micky Maus.',
+  ),
+  (
+    11,
+    20,
+    _w,
+    'Tag der Absurdität',
+    'Ein Tag für alles, was keinen Sinn ergibt. Heute ist Unsinn ausdrücklich erlaubt.',
+  ),
+  (
+    11,
+    24,
+    _w,
+    'Tag der Evolution',
+    'Am 24. November 1859 erschien Charles Darwins Buch "Über die Entstehung der Arten".',
+  ),
+  (
+    11,
+    26,
+    _w,
+    'Tag des Kuchens',
+    'In den USA wird heute einfach der Kuchen gefeiert. Welcher, ist egal.',
+  ),
+  (
+    11,
+    28,
+    _w,
+    'Tag der Armen Ritter',
+    'In den USA heißt der Tag "French Toast Day". Bei uns kennt man das in Ei gebratene Brot als Arme Ritter.',
+  ),
+  (
+    12,
+    1,
+    _w,
+    'Tag des roten Apfels',
+    'Ein Tag, um mal wieder in einen knackigen roten Apfel zu beißen. An apple a day...',
+  ),
+  (
+    12,
+    2,
+    _w,
+    'Tag des Mischlingshundes',
+    'Ein Tag für alle Hunde ohne Stammbaum. Er soll auch auf Hunde im Tierheim aufmerksam machen.',
+  ),
+  (
+    12,
+    5,
+    _w,
+    'Tag des Ninjas',
+    'Ein Tag für die Schattenkrieger aus Japan. Heute bewegt man sich am besten lautlos.',
+  ),
+  (
+    12,
+    7,
+    _w,
+    'Tag der Zuckerwatte',
+    'In den USA wird die Zuckerwatte gefeiert. Erfunden hat sie 1897 ausgerechnet ein Zahnarzt.',
+  ),
+  (
+    12,
+    8,
+    _w,
+    'Tag der Zeitreisenden',
+    'Heute tut man so, als käme man aus einer anderen Zeit und staunt über alles.',
+  ),
+  (
+    12,
+    9,
+    _w,
+    'Tag der Weihnachtskarte',
+    'Die erste gedruckte Weihnachtskarte wurde 1843 in London verschickt. Heute ist ein guter Tag, selbst welche zu schreiben.',
+  ),
+  (
+    12,
+    12,
+    _w,
+    'Tag des Lebkuchenhauses',
+    'Ein Tag für Häuser aus Lebkuchen, Zuckerguss und Süßigkeiten.',
+  ),
+  (
+    12,
+    15,
+    _w,
+    'Tag der Katzenhüter',
+    'Ein Tag für alle, die etwas Unmögliches versuchen, zum Beispiel Katzen in eine Richtung zu lenken.',
+  ),
+  (
+    12,
+    16,
+    _w,
+    'Tag des Schokoüberzugs',
+    'Heute darf alles in Schokolade getaucht werden, von Erdbeeren bis Brezeln.',
+  ),
+  (
+    12,
+    17,
+    _w,
+    'Tag der Brüder Wright',
+    'Am 17. Dezember 1903 gelang Orville und Wilbur Wright der erste Motorflug. Er dauerte zwölf Sekunden.',
+  ),
+  (
+    12,
+    18,
+    _w,
+    'Tag des Plätzchenbackens',
+    'Eine Woche vor Weihnachten ist höchste Zeit für die Plätzchen.',
+  ),
+  (
+    12,
+    20,
+    _w,
+    'Tag der Spiele',
+    'Ein Tag für Brettspiele, Kartenspiele und alles, was Spaß macht.',
+  ),
+  (
+    12,
+    23,
+    _w,
+    'Festivus',
+    'Ein erfundener Feiertag aus der Serie "Seinfeld", "für den Rest von uns". Statt Baum gibt es eine Aluminiumstange und das "Aufzählen der Beschwerden".',
+  ),
+  (
+    12,
+    25,
+    _w,
+    'Tag des Kürbiskuchens',
+    'In den USA steht am Weihnachtstag auch der Kürbiskuchen auf dem Tisch.',
+  ),
+  (
+    12,
+    27,
+    _w,
+    'Tag des Früchtebrots',
+    'Ein Tag für das schwere Brot voller Trockenfrüchte, das es jedes Jahr zu Weihnachten gibt.',
+  ),
+  (
+    12,
+    28,
+    _w,
+    'Tag der Spielkarten',
+    'Zwischen den Jahren ist Zeit für Kartenspiele. Heute wird gemischt und ausgeteilt.',
+  ),
+  (
+    12,
+    30,
+    _w,
+    'Tag des Bacons',
+    'In den USA wird heute Speck gefeiert, knusprig gebraten.',
   ),
 ];
 

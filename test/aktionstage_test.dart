@@ -97,6 +97,37 @@ void main() {
     });
   });
 
+  group('Startseite', () {
+    test('immer ein ernster und ein witziger Tag', () {
+      var day = DateTime(2026, 1, 1);
+      while (day.year == 2026) {
+        final shown = aktionstageFuerStartseite(day);
+        expect(shown.any((e) => !e.$2.witzig), isTrue, reason: '$day');
+        expect(shown.any((e) => e.$2.witzig), isTrue, reason: '$day');
+        for (final (d, _) in shown) {
+          expect(daysBetween(day, d), greaterThanOrEqualTo(0));
+        }
+        day = addDays(day, 1);
+      }
+    });
+
+    test('heutige Tage zuerst, fehlende Art vom nächsten Tag', () {
+      // 5.11.: nur der ernste Tsunami-Tag, der witzige kommt am 6.11.
+      final shown = aktionstageFuerStartseite(DateTime(2026, 11, 5, 9));
+      expect(shown.map((e) => e.$2.name), [
+        'Welttag des Tsunami-Bewusstseins',
+        'Tag des Saxophons',
+      ]);
+      expect(shown.last.$1, DateTime(2026, 11, 6));
+      // 31.10.: beides heute.
+      expect(
+        aktionstageFuerStartseite(DateTime(2026, 10, 31))
+            .map((e) => e.$2.name),
+        ['Reformationstag', 'Weltspartag', 'Halloween'],
+      );
+    });
+  });
+
   group('Zusätze', () {
     test('Ideen und Wikipedia-Titel gehören zu echten Tagen', () {
       final names = <String>{};
