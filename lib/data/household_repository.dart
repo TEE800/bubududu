@@ -222,7 +222,9 @@ class HouseholdRepository {
   Future<void> deleteRecipe(String householdId, String recipeId) {
     final batch = _db.batch()
       ..delete(_recipes(householdId).doc(recipeId))
-      ..delete(_household(householdId).collection('recipePhotos').doc(recipeId));
+      ..delete(
+        _household(householdId).collection('recipePhotos').doc(recipeId),
+      );
     return writeInBackground(batch.commit());
   }
 
@@ -233,10 +235,9 @@ class HouseholdRepository {
     required String url,
     String? page,
   }) => writeInBackground(
-    _recipes(householdId).doc(recipeId).update({
-      'imageUrl': url,
-      'imagePage': page ?? FieldValue.delete(),
-    }),
+    _recipes(householdId)
+        .doc(recipeId)
+        .update({'imageUrl': url, 'imagePage': page ?? FieldValue.delete()}),
   );
 
   /// Legt einen sechsstelligen Code an, den man Alexa sagt, um den Skill

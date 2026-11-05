@@ -87,7 +87,10 @@ List<String> dishQueries(String title) {
   final words = dishWords(clean);
   final main = clean
       .split(
-        RegExp(r'\s+(mit|und|an|auf|in|à la|a la|nach)\s+', caseSensitive: false),
+        RegExp(
+          r'\s+(mit|und|an|auf|in|à la|a la|nach)\s+',
+          caseSensitive: false,
+        ),
       )
       .first
       .split(RegExp(r'\s+'))
@@ -97,7 +100,8 @@ List<String> dishQueries(String title) {
   for (final q in [
     clean,
     main,
-    if (words.isNotEmpty) words.first[0].toUpperCase() + words.first.substring(1),
+    if (words.isNotEmpty)
+      words.first[0].toUpperCase() + words.first.substring(1),
   ]) {
     if (q.isNotEmpty) queries.putIfAbsent(q.toLowerCase(), () => q);
   }

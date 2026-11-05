@@ -149,7 +149,7 @@ void main() {
 
   testWidgets('Fehlende Vorräte auf die Einkaufsliste', (tester) async {
     await pumpPage(tester, const PantryScreen(householdId: 'h1'));
-    await tester.tap(find.textContaining('auf die Einkaufsliste'));
+    await tester.tap(find.textContaining('fehlende'));
     await tester.pump(const Duration(milliseconds: 100));
     final items =
         (await db.collection('households/h1/shoppingItems').get()).docs;
