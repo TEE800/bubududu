@@ -197,12 +197,16 @@ class _TogetherPill extends StatelessWidget {
           children: [
             Icon(Icons.favorite, size: 16, color: scheme.primary),
             const SizedBox(width: 6),
-            Text(
-              'Seit ${_thousands(days)} ${days == 1 ? 'Tag' : 'Tagen'} zusammen',
-              style: TextStyle(
-                color: scheme.primary,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
+            Flexible(
+              child: Text(
+                'Seit ${_thousands(days)} ${days == 1 ? 'Tag' : 'Tagen'} zusammen',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
               ),
             ),
           ],
