@@ -84,6 +84,14 @@ service cloud.firestore {
           request.resource.data.image.size() <= 950000;
       }
 
+      // Eigene Fotos der Gerichte im Kochbuch, eins je Rezept.
+      match /recipePhotos/{recipeId} {
+        allow read, delete: if isMember(householdId);
+        allow create, update: if isMember(householdId) &&
+          request.resource.data.image is bytes &&
+          request.resource.data.image.size() <= 950000;
+      }
+
       // Dokumente und Fotos zu Verträgen, je Datei ein Dokument (max. 1 MB).
       match /contractFiles/{fileId} {
         allow read, delete: if isMember(householdId);
@@ -94,7 +102,7 @@ service cloud.firestore {
       }
 
       match /{collection}/{docId} {
-        allow read, write: if !(collection in ['locations', 'plantPhotos', 'itemPhotos', 'contractFiles']) &&
+        allow read, write: if !(collection in ['locations', 'plantPhotos', 'itemPhotos', 'recipePhotos', 'contractFiles']) &&
           isMember(householdId);
       }
     }

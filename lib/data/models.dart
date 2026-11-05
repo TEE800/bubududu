@@ -97,6 +97,8 @@ class Recipe {
     required this.ingredients,
     required this.instructions,
     required this.addedBy,
+    this.imageUrl,
+    this.imagePage,
   });
 
   final String id;
@@ -104,6 +106,14 @@ class Recipe {
   final List<String> ingredients;
   final String instructions;
   final String addedBy;
+
+  /// Automatisch gefundenes Bild des Gerichts (Wikipedia). null = noch nicht
+  /// gesucht, '' = gesucht, aber nichts Passendes gefunden. Ein eigenes Foto
+  /// liegt getrennt in households/{id}/recipePhotos/{recipeId}.
+  final String? imageUrl;
+
+  /// Wikipedia-Artikel, aus dem [imageUrl] stammt.
+  final String? imagePage;
 
   factory Recipe.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
@@ -113,6 +123,8 @@ class Recipe {
       ingredients: List<String>.from(data['ingredients'] as List? ?? const []),
       instructions: data['instructions'] as String? ?? '',
       addedBy: data['addedBy'] as String? ?? '',
+      imageUrl: data['imageUrl'] as String?,
+      imagePage: data['imagePage'] as String?,
     );
   }
 }

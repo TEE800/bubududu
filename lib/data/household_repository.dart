@@ -194,11 +194,17 @@ class HouseholdRepository {
     required List<String> ingredients,
     required String instructions,
     required String uid,
+    bool resetImage = false,
   }) {
     final data = {
       'title': title,
       'ingredients': ingredients,
       'instructions': instructions,
+      // Neuer Name: das automatische Bild wird neu gesucht.
+      if (resetImage) ...{
+        'imageUrl': FieldValue.delete(),
+        'imagePage': FieldValue.delete(),
+      },
     };
     if (recipeId == null) {
       return writeInBackground(
@@ -212,8 +218,26 @@ class HouseholdRepository {
     return writeInBackground(_recipes(householdId).doc(recipeId).update(data));
   }
 
-  Future<void> deleteRecipe(String householdId, String recipeId) =>
-      writeInBackground(_recipes(householdId).doc(recipeId).delete());
+  /// Löscht das Rezept samt eigenem Foto.
+  Future<void> deleteRecipe(String householdId, String recipeId) {
+    final batch = _db.batch()
+      ..delete(_recipes(householdId).doc(recipeId))
+      ..delete(_household(householdId).collection('recipePhotos').doc(recipeId));
+    return writeInBackground(batch.commit());
+  }
+
+  /// Merkt sich das automatisch gefundene Bild ('' = nichts gefunden).
+  Future<void> setRecipeImage(
+    String householdId,
+    String recipeId, {
+    required String url,
+    String? page,
+  }) => writeInBackground(
+    _recipes(householdId).doc(recipeId).update({
+      'imageUrl': url,
+      'imagePage': page ?? FieldValue.delete(),
+    }),
+  );
 
   /// Legt einen sechsstelligen Code an, den man Alexa sagt, um den Skill
   /// "Bubu Dudu" mit diesem Haushalt zu verbinden. 15 Minuten gültig.
