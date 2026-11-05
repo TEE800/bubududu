@@ -10,219 +10,51 @@ import '../services/recipe_scanner.dart';
 import '../util/recipe_parser.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
+import '../widgets/recipe_image.dart';
 
-/// Tab "Rezepte": gemeinsame Rezeptsammlung des Haushalts.
-class RecipesScreen extends ConsumerWidget {
-  const RecipesScreen({super.key, required this.householdId});
-
-  final String householdId;
-
-  Future<void> _scan(BuildContext context) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text('Rezept scannen'),
-              subtitle: Text(
-                'Passt das Rezept nicht auf ein Bild, einfach mehrere '
-                'nehmen, sie werden zu einem Rezept zusammengefügt.',
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Fotos aufnehmen'),
-              subtitle: const Text('Gerade von oben, mit gutem Licht'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Bilder aus der Galerie'),
-              subtitle: const Text(
-                'Screenshots von oben nach unten antippen, weitere kannst du danach nachlegen',
-              ),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null || !context.mounted) return;
-
-    final images = <XFile>[];
-    try {
-      final gallery = source == ImageSource.gallery;
-      while (true) {
-        final picked = gallery
-            ? await pickRecipeImages()
-            : [?await takeRecipePhoto()];
-        if (!context.mounted) return;
-        if (picked.isEmpty) break;
-        images.addAll(picked);
-        // Nachlegen geht immer, auch wenn die Galerie nur ein Bild auf
-        // einmal auswählen lässt.
-        final more = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(
-              images.length == 1
-                  ? '1 Bild ausgewählt'
-                  : '${images.length} Bilder ausgewählt',
-            ),
-            content: const Text('Geht das Rezept noch weiter?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(gallery ? 'Weitere Bilder' : 'Weiteres Foto'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Fertig'),
-              ),
-            ],
-          ),
-        );
-        if (more != true) break;
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Die Bilder konnten nicht geöffnet werden.'),
-          ),
-        );
-      }
-      return;
-    }
-    if (images.isEmpty || !context.mounted) return;
-
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 24),
-            Expanded(child: Text('Rezept wird gelesen …')),
-          ],
-        ),
-      ),
-    );
-    List<OcrLine>? lines;
-    Object? error;
-    try {
-      lines = await scanRecipeImages(images);
-    } catch (e) {
-      error = e;
-    }
-    navigator.pop();
-
-    if (error != null) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Die Bilder konnten nicht gelesen werden.'),
-        ),
-      );
-      return;
-    }
-    final draft = parseRecipeLines(lines!);
-    if (draft.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Auf den Bildern wurde kein Text erkannt.'),
-        ),
-      );
-      return;
-    }
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) =>
-            RecipeEditScreen(householdId: householdId, draft: draft),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final recipes = ref.watch(recipesProvider(householdId));
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rezepte'),
-        actions: [
-          // Die Texterkennung gibt es nur in der installierten App.
-          if (!kIsWeb)
-            IconButton(
-              tooltip: 'Rezept scannen',
-              icon: const Icon(Icons.document_scanner_outlined),
-              onPressed: () => _scan(context),
-            ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: const Text('Neues Rezept'),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => RecipeEditScreen(householdId: householdId),
-          ),
-        ),
-      ),
-      body: recipes.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
-        data: (list) {
-          if (list.isEmpty) {
-            return const EmptyHint(
-              icon: Icons.menu_book_outlined,
-              text: 'Noch keine Rezepte. Legt euer erstes an!',
-              mood: MascotMood.hungry,
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 88),
-            itemCount: list.length,
-            itemBuilder: (context, index) {
-              final recipe = list[index];
-              final count = recipe.ingredients.length;
-              return ListTile(
-                leading: const Icon(Icons.restaurant_menu),
-                title: Text(recipe.title),
-                subtitle: Text(count == 1 ? '1 Zutat' : '$count Zutaten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => RecipeDetailScreen(
-                      householdId: householdId,
-                      recipeId: recipe.id,
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class RecipeDetailScreen extends ConsumerWidget {
-  const RecipeDetailScreen({
+/// Tab "Rezepte": das gemeinsame Kochbuch des Haushalts. Vorne das
+/// Inhaltsverzeichnis, danach eine Seite je Rezept zum Umblättern.
+class RecipesScreen extends ConsumerStatefulWidget {
+  const RecipesScreen({
     super.key,
     required this.householdId,
-    required this.recipeId,
+    this.initialRecipeId,
   });
 
   final String householdId;
-  final String recipeId;
 
-  Future<void> _delete(BuildContext context, WidgetRef ref, Recipe r) async {
+  /// Schlägt das Kochbuch gleich bei diesem Rezept auf.
+  final String? initialRecipeId;
+
+  @override
+  ConsumerState<RecipesScreen> createState() => _RecipesScreenState();
+}
+
+class _RecipesScreenState extends ConsumerState<RecipesScreen> {
+  PageController? _controller;
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  PageController _controllerFor(List<Recipe> list) {
+    final existing = _controller;
+    if (existing != null) return existing;
+    final index = list.indexWhere((r) => r.id == widget.initialRecipeId);
+    _page = index < 0 ? 0 : index + 1;
+    return _controller = PageController(initialPage: _page);
+  }
+
+  void _goTo(int page) => _controller?.animateToPage(
+    page,
+    duration: const Duration(milliseconds: 450),
+    curve: Curves.easeInOut,
+  );
+
+  Future<void> _delete(Recipe r) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -240,63 +72,455 @@ class RecipeDetailScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (ok != true || !context.mounted) return;
-    final repo = ref.read(householdRepositoryProvider);
-    Navigator.of(context).pop();
-    await repo.deleteRecipe(householdId, r.id);
+    if (ok != true || !mounted) return;
+    // Eine Seite zurückblättern, damit keine leere Seite stehen bleibt.
+    final back = _page > 0 ? _page - 1 : 0;
+    _controller?.jumpToPage(back);
+    setState(() => _page = back);
+    await ref
+        .read(householdRepositoryProvider)
+        .deleteRecipe(widget.householdId, r.id);
   }
 
+  void _openEditor({Recipe? recipe}) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) =>
+          RecipeEditScreen(householdId: widget.householdId, recipe: recipe),
+    ),
+  );
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final recipes = ref.watch(recipesProvider(householdId));
-    final recipe = recipes.value?.where((r) => r.id == recipeId).firstOrNull;
-    final household = ref.watch(householdProvider(householdId)).value;
+  Widget build(BuildContext context) {
+    final recipes = ref.watch(recipesProvider(widget.householdId));
     // Hält die Einkaufsliste geladen, damit die Auswahl weiß, was schon drauf steht.
-    ref.watch(shoppingItemsProvider(householdId));
+    ref.watch(shoppingItemsProvider(widget.householdId));
+    final list = recipes.value ?? const <Recipe>[];
+    if (list.isNotEmpty) _controllerFor(list);
+    final current = _page > 0 && _page <= list.length ? list[_page - 1] : null;
 
-    if (recipe == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: Center(
-          child: recipes.isLoading
-              ? const CircularProgressIndicator()
-              : const Text('Dieses Rezept gibt es nicht mehr.'),
-        ),
-      );
-    }
-
-    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
+      backgroundColor: _cover,
       appBar: AppBar(
-        title: Text(recipe.title),
+        title: const Text('Kochbuch'),
         actions: [
-          IconButton(
-            tooltip: 'Bearbeiten',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    RecipeEditScreen(householdId: householdId, recipe: recipe),
+          if (current != null) ...[
+            IconButton(
+              tooltip: 'Inhalt',
+              icon: const Icon(Icons.toc),
+              onPressed: () => _goTo(0),
+            ),
+            IconButton(
+              tooltip: 'Bearbeiten',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _openEditor(recipe: current),
+            ),
+            IconButton(
+              tooltip: 'Löschen',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _delete(current),
+            ),
+          ] else if (!kIsWeb)
+            // Die Texterkennung gibt es nur in der installierten App.
+            IconButton(
+              tooltip: 'Rezept scannen',
+              icon: const Icon(Icons.document_scanner_outlined),
+              onPressed: () => _scanRecipe(context, widget.householdId),
+            ),
+        ],
+      ),
+      floatingActionButton: current == null
+          ? FloatingActionButton.extended(
+              icon: const Icon(Icons.add),
+              label: const Text('Neues Rezept'),
+              onPressed: _openEditor,
+            )
+          : null,
+      body: recipes.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Text('Fehler: $e', style: const TextStyle(color: Colors.white)),
+        ),
+        data: (list) {
+          if (list.isEmpty) {
+            return const _BookPage(
+              child: EmptyHint(
+                icon: Icons.menu_book_outlined,
+                text: 'Euer Kochbuch ist noch leer. Legt euer erstes Rezept an!',
+                mood: MascotMood.hungry,
+              ),
+            );
+          }
+          final controller = _controllerFor(list);
+          return PageView.builder(
+            controller: controller,
+            itemCount: list.length + 1,
+            onPageChanged: (page) => setState(() => _page = page),
+            itemBuilder: (context, index) => _PageTurn(
+              controller: controller,
+              index: index,
+              child: _BookPage(
+                pageNumber: index + 1,
+                child: index == 0
+                    ? _Contents(recipes: list, onOpen: _goTo)
+                    : _RecipePage(
+                        householdId: widget.householdId,
+                        recipe: list[index - 1],
+                      ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Ein einzelnes Rezept, aufgeschlagen im Kochbuch.
+class RecipeDetailScreen extends StatelessWidget {
+  const RecipeDetailScreen({
+    super.key,
+    required this.householdId,
+    required this.recipeId,
+  });
+
+  final String householdId;
+  final String recipeId;
+
+  @override
+  Widget build(BuildContext context) =>
+      RecipesScreen(householdId: householdId, initialRecipeId: recipeId);
+}
+
+// Farben des Kochbuchs: dunkelgrüner Einband, cremefarbenes Papier.
+const _cover = Color(0xFF123F17);
+const _paper = Color(0xFFFBF6EA);
+const _ink = Color(0xFF2B2A26);
+const _inkSoft = Color(0xFF6E675B);
+const _accent = Color(0xFF1B5E20);
+const _serif = 'serif';
+const _serifFallback = ['Georgia', 'Noto Serif', 'Times New Roman'];
+
+TextStyle _bookText({
+  double size = 16,
+  FontWeight weight = FontWeight.normal,
+  FontStyle style = FontStyle.normal,
+  Color color = _ink,
+  double? letterSpacing,
+  double height = 1.45,
+}) => TextStyle(
+  fontFamily: _serif,
+  fontFamilyFallback: _serifFallback,
+  fontSize: size,
+  fontWeight: weight,
+  fontStyle: style,
+  color: color,
+  letterSpacing: letterSpacing,
+  height: height,
+);
+
+/// Dreht die Seiten beim Wischen leicht weg, wie beim Umblättern.
+class _PageTurn extends StatelessWidget {
+  const _PageTurn({
+    required this.controller,
+    required this.index,
+    required this.child,
+  });
+
+  final PageController controller;
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      child: child,
+      builder: (context, child) {
+        var offset = 0.0;
+        if (controller.hasClients && controller.position.haveDimensions) {
+          offset = (index - (controller.page ?? 0)).clamp(-1.0, 1.0);
+        }
+        if (offset == 0) return child!;
+        return Transform(
+          alignment: offset > 0 ? Alignment.centerLeft : Alignment.centerRight,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0012)
+            ..rotateY(-offset * 0.6),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+/// Ein Blatt Papier mit Buchrücken links und Seitenzahl unten.
+class _BookPage extends StatelessWidget {
+  const _BookPage({required this.child, this.pageNumber});
+
+  final Widget child;
+  final int? pageNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = BorderRadius.horizontal(
+      left: Radius.circular(4),
+      right: Radius.circular(16),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 12, 12, 16),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: _paper,
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(2, 4)),
+            // Angedeutete Seiten darunter
+            BoxShadow(color: Color(0xFFE9E0CC), offset: Offset(4, 3)),
+            BoxShadow(color: Color(0xFFDCD1B8), offset: Offset(7, 6)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Stack(
+            children: [
+              // Schatten des Buchrückens
+              const Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 18,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0x33000000), Color(0x00000000)],
+                    ),
+                  ),
+                ),
+              ),
+              Column(
+                children: [
+                  Expanded(
+                    child: DefaultTextStyle.merge(
+                      style: _bookText(),
+                      child: child,
+                    ),
+                  ),
+                  if (pageNumber != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10, top: 4),
+                      child: Text(
+                        '– $pageNumber –',
+                        style: _bookText(size: 13, color: _inkSoft),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Zierlinie zwischen Abschnitten.
+class _Ornament extends StatelessWidget {
+  const _Ornament();
+
+  @override
+  Widget build(BuildContext context) {
+    const line = Expanded(child: Divider(color: Color(0x551B5E20), height: 1));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        children: [
+          line,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text('❦', style: _bookText(size: 20, color: _accent)),
+          ),
+          line,
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text.toUpperCase(),
+      style: _bookText(
+        size: 14,
+        weight: FontWeight.bold,
+        color: _accent,
+        letterSpacing: 2.5,
+      ),
+    ),
+  );
+}
+
+/// Erste Seite: Titel und Inhaltsverzeichnis mit Seitenzahlen.
+class _Contents extends StatelessWidget {
+  const _Contents({required this.recipes, required this.onOpen});
+
+  final List<Recipe> recipes;
+  final void Function(int page) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(28, 32, 24, 88),
+      children: [
+        Text(
+          'Unser Kochbuch',
+          textAlign: TextAlign.center,
+          style: _bookText(size: 32, weight: FontWeight.bold, height: 1.2),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Rezepte von Bubu & Dudu',
+          textAlign: TextAlign.center,
+          style: _bookText(style: FontStyle.italic, color: _inkSoft),
+        ),
+        const _Ornament(),
+        const _SectionTitle('Inhalt'),
+        for (var i = 0; i < recipes.length; i++)
+          InkWell(
+            onTap: () => onOpen(i + 1),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.8,
+                      ),
+                      child: Text(
+                        recipes[i].title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: _bookText(size: 17),
+                      ),
+                    ),
+                    // Pünktchen bis zur Seitenzahl
+                    Expanded(
+                      child: Text(
+                        ' ${'.' * 200}',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.clip,
+                        style: _bookText(color: _inkSoft),
+                      ),
+                    ),
+                    Text(' ${i + 2}', style: _bookText(size: 17)),
+                  ],
+                ),
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'Löschen',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _delete(context, ref, recipe),
+        const SizedBox(height: 24),
+        Text(
+          'Zum Blättern nach links wischen',
+          textAlign: TextAlign.center,
+          style: _bookText(size: 13, style: FontStyle.italic, color: _inkSoft),
+        ),
+      ],
+    );
+  }
+}
+
+/// Eine Rezeptseite: Foto, Titel, Zutaten, Zubereitung.
+class _RecipePage extends ConsumerWidget {
+  const _RecipePage({required this.householdId, required this.recipe});
+
+  final String householdId;
+  final Recipe recipe;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final household = ref.watch(householdProvider(householdId)).value;
+    final author = household?.memberNames[recipe.addedBy];
+    final steps = recipe.instructions
+        .split(RegExp(r'\n+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(22, 22, 20, 8),
+      children: [
+        // Eingeklebtes Foto mit weißem Rand
+        Transform.rotate(
+          angle: -0.012,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 6,
+                  offset: Offset(1, 3),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: AspectRatio(
+                aspectRatio: 4 / 3,
+                child: RecipeImage(householdId: householdId, recipe: recipe),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          recipe.title,
+          textAlign: TextAlign.center,
+          style: _bookText(size: 28, weight: FontWeight.bold, height: 1.2),
+        ),
+        if (author != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            'von $author',
+            textAlign: TextAlign.center,
+            style: _bookText(style: FontStyle.italic, color: _inkSoft),
           ),
         ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (household != null)
-            Text(
-              'von ${household.memberNames[recipe.addedBy] ?? '?'}',
-              style: textTheme.bodySmall,
+        const _Ornament(),
+        const _SectionTitle('Zutaten'),
+        if (recipe.ingredients.isEmpty)
+          Text(
+            'Keine Zutaten eingetragen.',
+            style: _bookText(style: FontStyle.italic, color: _inkSoft),
+          ),
+        for (final ingredient in recipe.ingredients)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('•  ', style: _bookText(color: _accent)),
+                Expanded(child: Text(ingredient)),
+              ],
             ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
+          ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _accent,
+              side: const BorderSide(color: _accent),
+            ),
             icon: const Icon(Icons.add_shopping_cart),
             label: const Text('Zutaten auf die Einkaufsliste'),
             onPressed: recipe.ingredients.isEmpty
@@ -310,29 +534,168 @@ class RecipeDetailScreen extends ConsumerWidget {
                     ),
                   ),
           ),
-          const SizedBox(height: 24),
-          Text('Zutaten', style: textTheme.titleMedium),
-          const SizedBox(height: 4),
-          if (recipe.ingredients.isEmpty)
-            const Text('Keine Zutaten eingetragen.'),
-          for (final ingredient in recipe.ingredients)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.circle, size: 8),
-              minLeadingWidth: 8,
-              title: Text(ingredient),
+        ),
+        if (steps.isNotEmpty) ...[
+          const _Ornament(),
+          const _SectionTitle('Zubereitung'),
+          for (var i = 0; i < steps.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: steps.length == 1
+                  ? Text(steps[i])
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 28,
+                          child: Text(
+                            '${i + 1}.',
+                            style: _bookText(
+                              weight: FontWeight.bold,
+                              color: _accent,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Text(steps[i])),
+                      ],
+                    ),
             ),
-          if (recipe.instructions.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Text('Zubereitung', style: textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(recipe.instructions),
-          ],
         ],
-      ),
+        const SizedBox(height: 16),
+      ],
     );
   }
+}
+
+/// Fotografiert oder wählt Rezeptbilder und liest das Rezept daraus.
+Future<void> _scanRecipe(BuildContext context, String householdId) async {
+  final source = await showModalBottomSheet<ImageSource>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ListTile(
+            title: Text('Rezept scannen'),
+            subtitle: Text(
+              'Passt das Rezept nicht auf ein Bild, einfach mehrere '
+              'nehmen, sie werden zu einem Rezept zusammengefügt.',
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Fotos aufnehmen'),
+            subtitle: const Text('Gerade von oben, mit gutem Licht'),
+            onTap: () => Navigator.pop(context, ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Bilder aus der Galerie'),
+            subtitle: const Text(
+              'Screenshots von oben nach unten antippen, weitere kannst du danach nachlegen',
+            ),
+            onTap: () => Navigator.pop(context, ImageSource.gallery),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (source == null || !context.mounted) return;
+
+  final images = <XFile>[];
+  try {
+    final gallery = source == ImageSource.gallery;
+    while (true) {
+      final picked = gallery
+          ? await pickRecipeImages()
+          : [?await takeRecipePhoto()];
+      if (!context.mounted) return;
+      if (picked.isEmpty) break;
+      images.addAll(picked);
+      // Nachlegen geht immer, auch wenn die Galerie nur ein Bild auf
+      // einmal auswählen lässt.
+      final more = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            images.length == 1
+                ? '1 Bild ausgewählt'
+                : '${images.length} Bilder ausgewählt',
+          ),
+          content: const Text('Geht das Rezept noch weiter?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(gallery ? 'Weitere Bilder' : 'Weiteres Foto'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Fertig'),
+            ),
+          ],
+        ),
+      );
+      if (more != true) break;
+    }
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Die Bilder konnten nicht geöffnet werden.'),
+        ),
+      );
+    }
+    return;
+  }
+  if (images.isEmpty || !context.mounted) return;
+
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 24),
+          Expanded(child: Text('Rezept wird gelesen …')),
+        ],
+      ),
+    ),
+  );
+  List<OcrLine>? lines;
+  Object? error;
+  try {
+    lines = await scanRecipeImages(images);
+  } catch (e) {
+    error = e;
+  }
+  navigator.pop();
+
+  if (error != null) {
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Die Bilder konnten nicht gelesen werden.'),
+      ),
+    );
+    return;
+  }
+  final draft = parseRecipeLines(lines!);
+  if (draft.isEmpty) {
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Auf den Bildern wurde kein Text erkannt.'),
+      ),
+    );
+    return;
+  }
+  navigator.push(
+    MaterialPageRoute(
+      builder: (_) =>
+          RecipeEditScreen(householdId: householdId, draft: draft),
+    ),
+  );
 }
 
 /// Auswahl, welche Zutaten auf die Einkaufsliste sollen. Was dort schon
@@ -513,6 +876,8 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
               .toList(),
           instructions: _instructions.text.trim(),
           uid: ref.read(uidProvider),
+          resetImage:
+              widget.recipe != null && widget.recipe!.title != title,
         );
     if (mounted) Navigator.of(context).pop();
   }

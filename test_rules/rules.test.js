@@ -163,6 +163,17 @@ test('Pflanzenfotos: nur Mitglieder, nur Bilder bis knapp 1 MB', async () => {
   await assertFails(getDoc(doc(as('fremd'), 'households/h1/itemPhotos/milch')));
 });
 
+test('Rezeptfotos: nur Mitglieder, nur Bilder bis knapp 1 MB', async () => {
+  const photo = (size) => ({ image: Bytes.fromUint8Array(new Uint8Array(size)) });
+  await assertSucceeds(setDoc(doc(as('dudu'), 'households/h1/recipePhotos/r1'), photo(1000)));
+  await assertSucceeds(getDoc(doc(as('bubu'), 'households/h1/recipePhotos/r1')));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/recipePhotos/r2'), photo(960000)));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/recipePhotos/r2'), { image: 'kein Bild' }));
+  await assertFails(getDoc(doc(as('fremd'), 'households/h1/recipePhotos/r1')));
+  await assertFails(setDoc(doc(as('fremd'), 'households/h1/recipePhotos/r3'), photo(10)));
+  await assertSucceeds(deleteDoc(doc(as('bubu'), 'households/h1/recipePhotos/r1')));
+});
+
 test('Vertragsdateien: nur Mitglieder, nur Dateien bis knapp 1 MB', async () => {
   const file = (size) => ({ contractId: 'strom', name: 'Vertrag.pdf', mime: 'application/pdf', data: Bytes.fromUint8Array(new Uint8Array(size)) });
   await assertSucceeds(setDoc(doc(as('dudu'), 'households/h1/contractFiles/a'), file(1000)));
