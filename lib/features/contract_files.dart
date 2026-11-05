@@ -154,6 +154,89 @@ Future<void> deleteContractFiles(
   }
 }
 
+/// Fragt nach Kamera, Galerie oder (ohne [photosOnly]) Dokument und gibt die
+/// gewählte Datei zurück. Zu große Dateien werden mit einem Hinweis abgelehnt.
+Future<PickedFile?> pickAttachment(
+  BuildContext context,
+  WidgetRef ref, {
+  bool photosOnly = false,
+}) async {
+  final choice = await showModalBottomSheet<String>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Foto aufnehmen'),
+            onTap: () => Navigator.pop(context, 'camera'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Foto aus der Galerie'),
+            onTap: () => Navigator.pop(context, 'gallery'),
+          ),
+          if (!photosOnly)
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Dokument (z. B. PDF)'),
+              onTap: () => Navigator.pop(context, 'file'),
+            ),
+        ],
+      ),
+    ),
+  );
+  if (choice == null || !context.mounted) return null;
+  final PickedFile? file;
+  try {
+    file = switch (choice) {
+      'camera' => await ref.read(contractPhotoPickerProvider)(
+        ImageSource.camera,
+      ),
+      'gallery' => await ref.read(contractPhotoPickerProvider)(
+        ImageSource.gallery,
+      ),
+      _ => await ref.read(contractDocumentPickerProvider)(),
+    };
+  } catch (e) {
+    if (context.mounted) showError(context, 'Datei ging nicht: $e');
+    return null;
+  }
+  if (file == null || !context.mounted) return null;
+  if (file.bytes.length > maxContractFileBytes) {
+    showError(
+      context,
+      'Die Datei ist zu groß (höchstens 900 KB). '
+      'Ein Foto der Seite klappt meistens.',
+    );
+    return null;
+  }
+  return file;
+}
+
+/// Öffnet eine Datei: Fotos in der App, alles andere mit einer anderen App.
+Future<void> openAttachment(
+  BuildContext context, {
+  required Uint8List bytes,
+  required String name,
+  required String mime,
+}) async {
+  if (mime.startsWith('image/')) {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FileImageViewer(bytes: bytes, name: name, mime: mime),
+      ),
+    );
+    return;
+  }
+  try {
+    await openBytes(bytes, name, mime);
+  } catch (e) {
+    if (context.mounted) showError(context, 'Öffnen ging nicht: $e');
+  }
+}
+
 /// Abschnitt „Dokumente & Fotos“ im Vertrag.
 class ContractFilesSection extends ConsumerWidget {
   const ContractFilesSection({
@@ -226,55 +309,8 @@ class ContractFilesSection extends ConsumerWidget {
   }
 
   Future<void> _add(BuildContext context, WidgetRef ref) async {
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Foto aufnehmen'),
-              onTap: () => Navigator.pop(context, 'camera'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Foto aus der Galerie'),
-              onTap: () => Navigator.pop(context, 'gallery'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.description_outlined),
-              title: const Text('Dokument (z. B. PDF)'),
-              onTap: () => Navigator.pop(context, 'file'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (choice == null || !context.mounted) return;
-    final PickedFile? file;
-    try {
-      file = switch (choice) {
-        'camera' => await ref.read(contractPhotoPickerProvider)(
-          ImageSource.camera,
-        ),
-        'gallery' => await ref.read(contractPhotoPickerProvider)(
-          ImageSource.gallery,
-        ),
-        _ => await ref.read(contractDocumentPickerProvider)(),
-      };
-    } catch (e) {
-      if (context.mounted) showError(context, 'Datei ging nicht: $e');
-      return;
-    }
+    final file = await pickAttachment(context, ref);
     if (file == null || !context.mounted) return;
-    if (file.bytes.length > maxContractFileBytes) {
-      return showError(
-        context,
-        'Die Datei ist zu groß (höchstens 900 KB). '
-        'Ein Foto der Seite klappt meistens.',
-      );
-    }
     await addContractFile(
       ref.read(storeProvider(householdId)),
       contractId,
@@ -282,30 +318,28 @@ class ContractFilesSection extends ConsumerWidget {
     );
   }
 
-  Future<void> _open(BuildContext context, ContractFile f) async {
-    if (f.isImage) {
-      await Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => _ImageViewer(file: f)));
-      return;
-    }
-    try {
-      await openBytes(f.bytes, f.name, f.mime);
-    } catch (e) {
-      if (context.mounted) showError(context, 'Öffnen ging nicht: $e');
-    }
-  }
+  Future<void> _open(BuildContext context, ContractFile f) =>
+      openAttachment(context, bytes: f.bytes, name: f.name, mime: f.mime);
 }
 
-class _ImageViewer extends StatelessWidget {
-  const _ImageViewer({required this.file});
+/// Ein Foto bildschirmfüllend, mit Zoom und „Mit anderer App öffnen“.
+class FileImageViewer extends StatelessWidget {
+  const FileImageViewer({
+    super.key,
+    required this.bytes,
+    required this.name,
+    required this.mime,
+  });
 
-  final ContractFile file;
+  final Uint8List bytes;
+  final String name;
+  final String mime;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.black,
     appBar: AppBar(
-      title: Text(file.name),
+      title: Text(name),
       backgroundColor: Colors.black,
       foregroundColor: Colors.white,
       actions: [
@@ -314,7 +348,7 @@ class _ImageViewer extends StatelessWidget {
           icon: const Icon(Icons.open_in_new),
           onPressed: () async {
             try {
-              await openBytes(file.bytes, file.name, file.mime);
+              await openBytes(bytes, name, mime);
             } catch (e) {
               if (context.mounted) showError(context, 'Öffnen ging nicht: $e');
             }
@@ -324,7 +358,7 @@ class _ImageViewer extends StatelessWidget {
     ),
     body: InteractiveViewer(
       maxScale: 5,
-      child: Center(child: Image.memory(file.bytes)),
+      child: Center(child: Image.memory(bytes)),
     ),
   );
 }

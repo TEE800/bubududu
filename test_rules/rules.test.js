@@ -184,3 +184,18 @@ test('Vertragsdateien: nur Mitglieder, nur Dateien bis knapp 1 MB', async () => 
   await assertFails(setDoc(doc(as('fremd'), 'households/h1/contractFiles/d'), file(10)));
   await assertSucceeds(deleteDoc(doc(as('bubu'), 'households/h1/contractFiles/a')));
 });
+
+test('Reisedateien und Titelfotos: nur Mitglieder, bis knapp 1 MB', async () => {
+  const file = (size) => ({ tripId: 'sylt', kind: 'doc', name: 'Ticket.pdf', mime: 'application/pdf', data: Bytes.fromUint8Array(new Uint8Array(size)) });
+  await assertSucceeds(setDoc(doc(as('dudu'), 'households/h1/tripFiles/a'), file(1000)));
+  await assertSucceeds(getDoc(doc(as('bubu'), 'households/h1/tripFiles/a')));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/tripFiles/b'), file(960000)));
+  await assertFails(setDoc(doc(as('dudu'), 'households/h1/tripFiles/c'), { tripId: 'sylt', data: 'keine Datei' }));
+  await assertFails(getDoc(doc(as('fremd'), 'households/h1/tripFiles/a')));
+  await assertSucceeds(deleteDoc(doc(as('bubu'), 'households/h1/tripFiles/a')));
+
+  const photo = (size) => ({ image: Bytes.fromUint8Array(new Uint8Array(size)) });
+  await assertSucceeds(setDoc(doc(as('bubu'), 'households/h1/tripPhotos/sylt'), photo(1000)));
+  await assertFails(setDoc(doc(as('bubu'), 'households/h1/tripPhotos/rom'), photo(960000)));
+  await assertFails(getDoc(doc(as('fremd'), 'households/h1/tripPhotos/sylt')));
+});
