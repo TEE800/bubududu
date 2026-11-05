@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
@@ -10,11 +11,11 @@ import '../util/aktionstage.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
 import '../widgets/common.dart';
-import '../widgets/mascots.dart';
 import 'aktionstag_sheet.dart';
 import 'calendar.dart';
 import 'care.dart';
 import 'contracts.dart';
+import 'dashboard_header.dart';
 import 'dashboard_layout.dart';
 import 'depot.dart';
 import 'finance.dart';
@@ -70,89 +71,258 @@ class DashboardScreen extends ConsumerWidget {
         : 'Guten Abend';
     final layout = ref.watch(dashLayoutProvider).value ?? DashLayout.standard;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(name.isEmpty ? greeting : '$greeting, $name'),
-        actions: [
-          IconButton(
-            tooltip: 'Startseite einrichten',
-            icon: const Icon(Icons.tune),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    DashboardSettingsScreen(householdId: householdId),
-              ),
-            ),
-          ),
-        ],
+    void openSettings() => Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DashboardSettingsScreen(householdId: householdId),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(weatherProvider);
-          ref.invalidate(devicePlaceProvider);
-          ref.invalidate(stockQuoteProvider);
-          ref.invalidate(euroQuoteProvider);
-        },
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${weekdayLong(now)}, ${now.day}. ${monthNames[now.month - 1]} ${now.year}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  Mascots(mood: moodForTime(now), height: 64),
-                ],
+    );
+    final visible = layout.visible;
+    // Einkauf und Essen stehen oben als kleine Kacheln, nicht noch einmal
+    // als große Karte.
+    final quick = [
+      for (final t in visible)
+        if (t == DashTile.today ||
+            t == DashTile.shopping ||
+            t == DashTile.meal)
+          t,
+    ];
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(weatherProvider);
+            ref.invalidate(devicePlaceProvider);
+            ref.invalidate(stockQuoteProvider);
+            ref.invalidate(euroQuoteProvider);
+          },
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              MeadowHeader(
+                householdId: householdId,
+                title: name.isEmpty ? greeting : '$greeting,\n$name!',
+                now: now,
+                showWeather: visible.contains(DashTile.weather),
+                onSettings: openSettings,
               ),
-            ),
-            for (final tile in layout.visible)
-              switch (tile) {
-                DashTile.aktionstage => _AktionstageCard(now: now),
-                DashTile.weather => _WeatherCard(householdId: householdId),
-                DashTile.today => _TodayCard(
-                  householdId: householdId,
-                  onOpenTab: onOpenTab,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (quick.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final (i, t) in quick.indexed) ...[
+                                if (i > 0) const SizedBox(width: 10),
+                                Expanded(
+                                  child: switch (t) {
+                                    DashTile.today => _TasksMini(
+                                      householdId: householdId,
+                                      onTap: () => onOpenTab(2),
+                                    ),
+                                    DashTile.shopping => _ShoppingMini(
+                                      householdId: householdId,
+                                      onTap: () => onOpenTab(1),
+                                    ),
+                                    _ => _MealMini(
+                                      householdId: householdId,
+                                      onTap: () => onOpenPage(
+                                        MealPlanScreen(
+                                          householdId: householdId,
+                                        ),
+                                      ),
+                                    ),
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    for (final tile in visible)
+                      switch (tile) {
+                        DashTile.aktionstage => _AktionstageCard(now: now),
+                        DashTile.weather => _WeatherCard(
+                          householdId: householdId,
+                        ),
+                        DashTile.today => _TodayCard(
+                          householdId: householdId,
+                          onOpenTab: onOpenTab,
+                        ),
+                        DashTile.upcoming => _UpcomingCard(
+                          householdId: householdId,
+                          onOpenTab: onOpenTab,
+                        ),
+                        DashTile.shopping ||
+                        DashTile.meal => const SizedBox.shrink(),
+                        DashTile.money => _MoneyCard(
+                          householdId: householdId,
+                          onOpenPage: onOpenPage,
+                        ),
+                        DashTile.reminders => _RemindersCard(
+                          householdId: householdId,
+                          onOpenPage: onOpenPage,
+                        ),
+                        DashTile.health => _HealthCard(
+                          householdId: householdId,
+                          onOpenPage: onOpenPage,
+                        ),
+                        DashTile.depot => _DepotCard(onOpenPage: onOpenPage),
+                        DashTile.stocks => _StocksCard(
+                          householdId: householdId,
+                        ),
+                        DashTile.together => TogetherCard(
+                          householdId: householdId,
+                        ),
+                        DashTile.location => _LocationCard(
+                          householdId: householdId,
+                          onOpenPage: onOpenPage,
+                        ),
+                      },
+                  ],
                 ),
-                DashTile.upcoming => _UpcomingCard(
-                  householdId: householdId,
-                  onOpenTab: onOpenTab,
-                ),
-                DashTile.shopping => _ShoppingCard(
-                  householdId: householdId,
-                  onOpenTab: onOpenTab,
-                ),
-                DashTile.meal => _MealCard(
-                  householdId: householdId,
-                  onOpenPage: onOpenPage,
-                ),
-                DashTile.money => _MoneyCard(
-                  householdId: householdId,
-                  onOpenPage: onOpenPage,
-                ),
-                DashTile.reminders => _RemindersCard(
-                  householdId: householdId,
-                  onOpenPage: onOpenPage,
-                ),
-                DashTile.health => _HealthCard(
-                  householdId: householdId,
-                  onOpenPage: onOpenPage,
-                ),
-                DashTile.depot => _DepotCard(onOpenPage: onOpenPage),
-                DashTile.stocks => _StocksCard(householdId: householdId),
-                DashTile.together => TogetherCard(householdId: householdId),
-                DashTile.location => _LocationCard(
-                  householdId: householdId,
-                  onOpenPage: onOpenPage,
-                ),
-              },
-          ],
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Kleine Kachel oben unter dem Himmel: Symbol, große Zahl, kurzer Text.
+class _MiniTile extends StatelessWidget {
+  const _MiniTile({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.onTap,
+    this.small = false,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final VoidCallback onTap;
+
+  /// Für längere Werte wie den Namen eines Gerichts.
+  final bool small;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 22, color: scheme.primary),
+              const Spacer(),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                maxLines: small ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: small ? 15 : 22,
+                  height: 1.15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TasksMini extends ConsumerWidget {
+  const _TasksMini({required this.householdId, required this.onTap});
+
+  final String householdId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    final tasks =
+        ref.watch(tasksProvider(householdId)).value ?? const <HouseTask>[];
+    final due = tasks.where((t) => t.isOverdue(now) || t.isDueToday(now));
+    return _MiniTile(
+      icon: Icons.cleaning_services_outlined,
+      value: due.isEmpty ? '✓' : '${due.length}',
+      label: due.isEmpty ? 'alles erledigt' : 'Aufgaben offen',
+      onTap: onTap,
+    );
+  }
+}
+
+class _ShoppingMini extends ConsumerWidget {
+  const _ShoppingMini({required this.householdId, required this.onTap});
+
+  final String householdId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items =
+        ref.watch(shoppingItemsProvider(householdId)).value ?? const [];
+    final open = items.where((i) => !i.done).length;
+    return _MiniTile(
+      icon: Icons.shopping_cart_outlined,
+      value: open == 0 ? '✓' : '$open',
+      label: open == 0 ? 'alles eingekauft' : 'zum Einkaufen',
+      onTap: onTap,
+    );
+  }
+}
+
+class _MealMini extends ConsumerWidget {
+  const _MealMini({required this.householdId, required this.onTap});
+
+  final String householdId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(mealPlanProvider(householdId)).value ?? const {};
+    final recipes = ref.watch(recipesProvider(householdId)).value ?? const [];
+    final todayMeal = plan[mealDocId(today())];
+    // Jeden Tag ein anderer Vorschlag aus euren Rezepten.
+    final idea = recipes.isEmpty
+        ? null
+        : recipes[today().difference(DateTime(2020)).inDays % recipes.length]
+              .title;
+    return _MiniTile(
+      icon: Icons.restaurant_outlined,
+      value: todayMeal ?? idea ?? 'Noch offen',
+      label: todayMeal != null
+          ? 'heute essen'
+          : idea != null
+          ? 'Idee für heute'
+          : 'Essen planen',
+      small: true,
+      onTap: onTap,
     );
   }
 }
@@ -163,6 +333,7 @@ class _DashCard extends StatelessWidget {
     required this.title,
     required this.child,
     this.onTap,
+    this.color,
   });
 
   final IconData icon;
@@ -170,9 +341,14 @@ class _DashCard extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
 
+  /// Hintergrund, falls die Karte hervorstechen soll.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Card(
+      color: color,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -183,22 +359,33 @@ class _DashCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: color == null
+                          ? scheme.primaryContainer
+                          : Colors.white.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 19,
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
                   if (onTap != null) const Icon(Icons.chevron_right, size: 20),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               child,
             ],
           ),
@@ -207,6 +394,12 @@ class _DashCard extends StatelessWidget {
     );
   }
 }
+
+/// Helles Gelb für den Aktionstag, im Dunkelmodus gedämpft.
+Color _sunny(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? const Color(0xFF4A3F1C)
+    : const Color(0xFFFFF3CF);
 
 /// Die Aktionstage von heute. Gibt es heute keinen, die nächsten.
 /// Antippen zeigt, was hinter dem Tag steckt.
@@ -237,6 +430,7 @@ class _AktionstageCard extends StatelessWidget {
     return _DashCard(
       icon: Icons.celebration_outlined,
       title: todays.isNotEmpty ? 'Aktionstage heute' : 'Nächster Aktionstag',
+      color: _sunny(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -385,21 +579,75 @@ class _TodayCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (final t in due.take(5))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(
-                      '• ${t.title} (${t.assignee.isEmpty ? 'Beide' : names[t.assignee] ?? '?'})'
-                      '${t.isOverdue(now) ? ', überfällig' : ''}',
-                      style: t.isOverdue(now)
-                          ? TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            )
-                          : null,
-                    ),
+                  _TaskRow(
+                    title: t.title,
+                    who: t.assignee.isEmpty
+                        ? 'Beide'
+                        : names[t.assignee] ?? '?',
+                    overdue: t.isOverdue(now),
                   ),
                 if (due.length > 5) Text('und ${due.length - 5} weitere'),
               ],
             ),
+    );
+  }
+}
+
+/// Eine Zeile in "Aufgaben heute": Kreis, Titel und wer dran ist.
+class _TaskRow extends StatelessWidget {
+  const _TaskRow({
+    required this.title,
+    required this.who,
+    required this.overdue,
+  });
+
+  final String title;
+  final String who;
+  final bool overdue;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = overdue ? scheme.error : scheme.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: accent.withValues(alpha: 0.6), width: 2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              overdue ? '$title, überfällig' : title,
+              style: overdue ? TextStyle(color: scheme.error) : null,
+            ),
+          ),
+          const SizedBox(width: 8),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              child: Text(
+                who,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -438,60 +686,6 @@ class _UpcomingCard extends ConsumerWidget {
                   ),
               ],
             ),
-    );
-  }
-}
-
-class _ShoppingCard extends ConsumerWidget {
-  const _ShoppingCard({required this.householdId, required this.onOpenTab});
-
-  final String householdId;
-  final ValueChanged<int> onOpenTab;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items =
-        ref.watch(shoppingItemsProvider(householdId)).value ?? const [];
-    final open = items.where((i) => !i.done).toList();
-    return _DashCard(
-      icon: Icons.shopping_cart_outlined,
-      title: 'Einkaufsliste',
-      onTap: () => onOpenTab(1),
-      child: Text(
-        open.isEmpty
-            ? 'Alles eingekauft.'
-            : '${open.length} offen: ${open.take(4).map((i) => i.text).join(', ')}'
-                  '${open.length > 4 ? ' …' : ''}',
-      ),
-    );
-  }
-}
-
-class _MealCard extends ConsumerWidget {
-  const _MealCard({required this.householdId, required this.onOpenPage});
-
-  final String householdId;
-  final void Function(Widget page) onOpenPage;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final plan = ref.watch(mealPlanProvider(householdId)).value ?? const {};
-    final recipes = ref.watch(recipesProvider(householdId)).value ?? const [];
-    final todayMeal = plan[mealDocId(today())];
-    final tomorrowMeal = plan[mealDocId(addDays(today(), 1))];
-    return _DashCard(
-      icon: Icons.restaurant_outlined,
-      title: 'Essen',
-      onTap: () => onOpenPage(MealPlanScreen(householdId: householdId)),
-      child: Text(
-        [
-          'Heute: ${todayMeal ?? 'noch nichts geplant'}',
-          if (tomorrowMeal != null) 'Morgen: $tomorrowMeal',
-          // Jeden Tag ein anderer Vorschlag aus euren Rezepten.
-          if (todayMeal == null && recipes.isNotEmpty)
-            'Idee: ${recipes[today().difference(DateTime(2020)).inDays % recipes.length].title}',
-        ].join('\n'),
-      ),
     );
   }
 }
