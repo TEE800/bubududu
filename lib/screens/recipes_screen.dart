@@ -165,7 +165,11 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
               child: _BookPage(
                 pageNumber: index + 1,
                 child: index == 0
-                    ? _Contents(recipes: list, onOpen: _goTo)
+                    ? _Contents(
+                        householdId: widget.householdId,
+                        recipes: list,
+                        onOpen: _goTo,
+                      )
                     : _RecipePage(
                         householdId: widget.householdId,
                         recipe: list[index - 1],
@@ -374,17 +378,22 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
-/// Erste Seite: Titel und Inhaltsverzeichnis mit Seitenzahlen.
+/// Erste Seite: Titel und alle Rezepte als Kacheln mit Bild des Gerichts.
 class _Contents extends StatelessWidget {
-  const _Contents({required this.recipes, required this.onOpen});
+  const _Contents({
+    required this.householdId,
+    required this.recipes,
+    required this.onOpen,
+  });
 
+  final String householdId;
   final List<Recipe> recipes;
   final void Function(int page) onOpen;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(28, 32, 24, 88),
+      padding: const EdgeInsets.fromLTRB(22, 28, 20, 88),
       children: [
         Text(
           'Unser Kochbuch',
@@ -398,50 +407,102 @@ class _Contents extends StatelessWidget {
           style: _bookText(style: FontStyle.italic, color: _inkSoft),
         ),
         const _Ornament(),
-        const _SectionTitle('Inhalt'),
-        for (var i = 0; i < recipes.length; i++)
-          InkWell(
-            onTap: () => onOpen(i + 1),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: constraints.maxWidth * 0.8,
-                      ),
-                      child: Text(
-                        recipes[i].title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: _bookText(size: 17),
-                      ),
-                    ),
-                    // Pünktchen bis zur Seitenzahl
-                    Expanded(
-                      child: Text(
-                        ' ${'.' * 200}',
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.clip,
-                        style: _bookText(color: _inkSoft),
-                      ),
-                    ),
-                    Text(' ${i + 2}', style: _bookText(size: 17)),
-                  ],
-                ),
-              ),
-            ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: recipes.length,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 200,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            childAspectRatio: 0.78,
           ),
+          itemBuilder: (context, i) => _RecipeTile(
+            householdId: householdId,
+            recipe: recipes[i],
+            page: i + 2,
+            onTap: () => onOpen(i + 1),
+          ),
+        ),
         const SizedBox(height: 24),
         Text(
-          'Zum Blättern nach links wischen',
+          'Kachel antippen oder nach links wischen zum Blättern',
           textAlign: TextAlign.center,
           style: _bookText(size: 13, style: FontStyle.italic, color: _inkSoft),
         ),
       ],
+    );
+  }
+}
+
+/// Kachel auf der ersten Seite: eingeklebtes Foto, Name und Seitenzahl.
+class _RecipeTile extends StatelessWidget {
+  const _RecipeTile({
+    required this.householdId,
+    required this.recipe,
+    required this.page,
+    required this.onTap,
+  });
+
+  final String householdId;
+  final Recipe recipe;
+  final int page;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 2,
+      shadowColor: Colors.black38,
+      borderRadius: BorderRadius.circular(6),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(5, 5, 5, 0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: RecipeImage(
+                    householdId: householdId,
+                    recipe: recipe,
+                    editable: false,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(
+                      recipe.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: _bookText(
+                        size: 15,
+                        weight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    ' $page',
+                    style: _bookText(size: 12, color: _inkSoft),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

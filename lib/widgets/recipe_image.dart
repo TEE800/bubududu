@@ -141,7 +141,7 @@ class _RecipeImageState extends ConsumerState<RecipeImage> {
       fit: StackFit.expand,
       children: [
         image,
-        if (photo == null && url.isNotEmpty && page != null)
+        if (widget.editable && photo == null && url.isNotEmpty && page != null)
           Positioned(
             left: 6,
             bottom: 6,
@@ -227,18 +227,25 @@ class DishPlaceholder extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('🍽️', style: TextStyle(fontSize: 56)),
-            if (searching) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Bild wird gesucht …',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
-              ),
-            ],
-          ],
+        // Passt auch in kleine Kacheln.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🍽️', style: TextStyle(fontSize: 56)),
+                if (searching) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Bild wird gesucht …',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
