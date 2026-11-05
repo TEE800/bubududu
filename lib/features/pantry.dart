@@ -177,27 +177,29 @@ final pantryProvider = Provider.family<AsyncValue<List<PantryItem>>, String>(
 
 /// Wie die Vorräte angeordnet sind. Merkt sich jedes Gerät selbst.
 enum PantrySort {
-  rooms('Nach Räumen', Icons.meeting_room_outlined),
-  groups('Nach Produktgruppen', Icons.category_outlined),
-  name('Alphabetisch', Icons.sort_by_alpha),
-  left('Nach Restmenge', Icons.battery_3_bar);
+  groups('Thema', 'Nach Thema sortieren'),
+  rooms('Zimmer', 'Nach Zimmer sortieren'),
+  name('A–Z', 'Alphabetisch sortieren'),
+  left('Menge', 'Was zuerst leer ist, steht vorne');
 
-  const PantrySort(this.label, this.icon);
+  const PantrySort(this.label, this.hint);
   final String label;
-  final IconData icon;
+  final String hint;
 
   static PantrySort parse(String? name) =>
       PantrySort.values.where((s) => s.name == name).firstOrNull ??
-      PantrySort.rooms;
+      PantrySort.groups;
 }
 
 class PantrySortNotifier extends Notifier<PantrySort> {
-  static const _key = 'pantrySort';
+  // Neuer Schlüssel: Standard ist jetzt nach Thema, auch für alle, die
+  // vorher die alte Voreinstellung „Nach Räumen“ gespeichert hatten.
+  static const _key = 'pantrySort2';
 
   @override
   PantrySort build() {
     _load();
-    return PantrySort.rooms;
+    return PantrySort.groups;
   }
 
   Future<void> _load() async {
@@ -205,7 +207,7 @@ class PantrySortNotifier extends Notifier<PantrySort> {
       final saved = await SharedPreferencesAsync().getString(_key);
       if (saved != null) state = PantrySort.parse(saved);
     } catch (_) {
-      // Ohne Speicher (z. B. im Test) bleibt es bei „Nach Räumen“.
+      // Ohne Speicher (z. B. im Test) bleibt es bei „Thema“.
     }
   }
 
@@ -221,15 +223,15 @@ final pantrySortProvider = NotifierProvider<PantrySortNotifier, PantrySort>(
   PantrySortNotifier.new,
 );
 
-/// Name für Vorräte ohne Raum.
-const noRoom = 'Ohne Raum';
+/// Name für Vorräte ohne Zimmer.
+const noRoom = 'Ohne Zimmer';
 
 int _byName(PantryItem a, PantryItem b) =>
     a.name.toLowerCase().compareTo(b.name.toLowerCase());
 
-/// Ordnet die Vorräte in Abschnitte: nach Räumen (alphabetisch, „Ohne Raum“
-/// zuletzt), nach Produktgruppen (in Einkaufsreihenfolge) oder als ein
-/// einziger Abschnitt ohne Überschrift ('').
+/// Ordnet die Vorräte in Abschnitte: nach Zimmern (alphabetisch, „Ohne
+/// Zimmer“ zuletzt), nach Thema (Produktgruppen in Einkaufsreihenfolge) oder
+/// als ein einziger Abschnitt ohne Überschrift ('').
 List<(String, List<PantryItem>)> pantrySections(
   List<PantryItem> items,
   PantrySort sort,
@@ -293,25 +295,7 @@ class PantryScreen extends ConsumerWidget {
     final now = DateTime.now();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vorräte'),
-        actions: [
-          PopupMenuButton<PantrySort>(
-            tooltip: 'Sortieren',
-            icon: Icon(sort.icon),
-            initialValue: sort,
-            onSelected: ref.read(pantrySortProvider.notifier).set,
-            itemBuilder: (_) => [
-              for (final s in PantrySort.values)
-                CheckedPopupMenuItem(
-                  value: s,
-                  checked: s == sort,
-                  child: Text(s.label),
-                ),
-            ],
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Vorräte')),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('Vorrat'),
@@ -336,6 +320,31 @@ class PantryScreen extends ConsumerWidget {
             (MediaQuery.textScalerOf(context).scale(14) - 14) * 6;
         return CustomScrollView(
           slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: SegmentedButton<PantrySort>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    padding: WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                  ),
+                  segments: [
+                    for (final s in PantrySort.values)
+                      ButtonSegment(
+                        value: s,
+                        label: Text(s.label, maxLines: 1, softWrap: false),
+                        tooltip: s.hint,
+                      ),
+                  ],
+                  selected: {sort},
+                  onSelectionChanged: (s) =>
+                      ref.read(pantrySortProvider.notifier).set(s.first),
+                ),
+              ),
+            ),
             if (missing.isNotEmpty)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -394,9 +403,9 @@ class PantryScreen extends ConsumerWidget {
                 sliver: SliverGrid.builder(
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 200,
-                    mainAxisExtent: 196 + extraHeight,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
+                    mainAxisExtent: 262 + extraHeight,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
                   ),
                   itemCount: roomItems.length,
                   itemBuilder: (context, n) => _tile(
@@ -433,107 +442,143 @@ class PantryScreen extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _open(context, i),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 4, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  ItemAvatar(householdId: householdId, name: i.name, size: 52),
-                  const Spacer(),
+                  ItemPicture(
+                    householdId: householdId,
+                    name: i.name,
+                    editable: false,
+                  ),
                   if (level != StockLevel.full)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Icon(
-                        level == StockLevel.low
-                            ? Icons.hourglass_bottom
-                            : Icons.remove_circle_outline,
-                        color: scheme.error,
-                        size: 20,
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              level == StockLevel.low
+                                  ? Icons.hourglass_bottom
+                                  : Icons.remove_circle_outline,
+                              color: scheme.onErrorContainer,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              level.label,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onErrorContainer,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                i.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall,
-              ),
-              Text(
-                [
-                  if (i.countsUses)
-                    usesText(i.remaining(now), i.uses!)
-                  else
-                    level.label,
-                  if (i.autoUses)
-                    emptyOn == null
-                        ? 'automatisch'
-                        : 'reicht bis ca. ${formatShortDate(emptyOn)}',
-                  if (showPlace && i.place.isNotEmpty) i.place,
-                  if (i.bestBefore != null)
-                    'MHD ${formatShortDate(i.bestBefore!)}',
-                ].join(' · '),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: i.expiresSoon(now) ? scheme.error : null,
-                ),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: LinearProgressIndicator(
-                  value: i.fractionLeft(now),
-                  color: warn,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Row(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 4, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (i.countsUses)
-                    IconButton.filledTonal(
-                      tooltip: 'Einmal benutzt',
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.remove),
-                      onPressed: i.remaining(now) == 0
-                          ? null
-                          : () => _useOnce(context, store, i),
+                  Text(
+                    i.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  Text(
+                    [
+                      if (i.countsUses)
+                        usesText(i.remaining(now), i.uses!)
+                      // Knapp und leer stehen schon groß auf dem Bild.
+                      else if (level == StockLevel.full)
+                        level.label,
+                      if (i.autoUses)
+                        emptyOn == null
+                            ? 'automatisch'
+                            : 'reicht bis ca. ${formatShortDate(emptyOn)}',
+                      if (showPlace && i.place.isNotEmpty) i.place,
+                      if (i.bestBefore != null)
+                        'MHD ${formatShortDate(i.bestBefore!)}',
+                    ].join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: i.expiresSoon(now) ? scheme.error : null,
                     ),
-                  const Spacer(),
-                  if (i.countsUses)
-                    PopupMenuButton<void>(
-                      tooltip: 'Bestand ändern',
-                      icon: const Icon(Icons.tune),
-                      itemBuilder: (_) => [
-                        PopupMenuItem(
-                          onTap: () => store.update(
-                            'pantry',
-                            i.id,
-                            i.usesUpdate(i.uses!.toDouble(), DateTime.now()),
-                          ),
-                          child: Text('Wieder voll (${i.uses})'),
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: LinearProgressIndicator(
+                      value: i.fractionLeft(now),
+                      color: warn,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      if (i.countsUses)
+                        IconButton.filledTonal(
+                          tooltip: 'Einmal benutzt',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.remove),
+                          onPressed: i.remaining(now) == 0
+                              ? null
+                              : () => _useOnce(context, store, i),
                         ),
-                      ],
-                    )
-                  else
-                    PopupMenuButton<StockLevel>(
-                      tooltip: 'Bestand ändern',
-                      icon: const Icon(Icons.tune),
-                      onSelected: (l) =>
-                          store.update('pantry', i.id, {'level': l.name}),
-                      itemBuilder: (_) => [
-                        for (final l in StockLevel.values)
-                          PopupMenuItem(value: l, child: Text(l.label)),
-                      ],
-                    ),
+                      const Spacer(),
+                      if (i.countsUses)
+                        PopupMenuButton<void>(
+                          tooltip: 'Bestand ändern',
+                          icon: const Icon(Icons.tune),
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              onTap: () => store.update(
+                                'pantry',
+                                i.id,
+                                i.usesUpdate(
+                                  i.uses!.toDouble(),
+                                  DateTime.now(),
+                                ),
+                              ),
+                              child: Text('Wieder voll (${i.uses})'),
+                            ),
+                          ],
+                        )
+                      else
+                        PopupMenuButton<StockLevel>(
+                          tooltip: 'Bestand ändern',
+                          icon: const Icon(Icons.tune),
+                          onSelected: (l) =>
+                              store.update('pantry', i.id, {'level': l.name}),
+                          itemBuilder: (_) => [
+                            for (final l in StockLevel.values)
+                              PopupMenuItem(value: l, child: Text(l.label)),
+                          ],
+                        ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -702,36 +747,54 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
                   .delete('pantry', i.id);
             },
       children: [
-        Row(
-          children: [
-            ValueListenableBuilder(
-              valueListenable: _name,
-              builder: (context, name, _) => ItemAvatar(
-                householdId: widget.householdId,
-                name: name.text,
-                size: 48,
-              ),
+        if (i != null) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: ItemPicture(householdId: widget.householdId, name: i.name),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _name,
-                autofocus: i == null,
-                decoration: const InputDecoration(
-                  labelText: 'Was?',
-                  hintText: 'z. B. Nudeln, Klopapier',
-                  helperText: 'Symbol antippen für ein Produktfoto',
+          ),
+          Text(
+            'Bild antippen für ein eigenes Foto',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          TextField(
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'Was?'),
+            textCapitalization: TextCapitalization.sentences,
+          ),
+        ] else
+          Row(
+            children: [
+              ValueListenableBuilder(
+                valueListenable: _name,
+                builder: (context, name, _) => ItemAvatar(
+                  householdId: widget.householdId,
+                  name: name.text,
+                  size: 48,
                 ),
-                textCapitalization: TextCapitalization.sentences,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _name,
+                  autofocus: i == null,
+                  decoration: const InputDecoration(
+                    labelText: 'Was?',
+                    hintText: 'z. B. Nudeln, Klopapier',
+                    helperText: 'Symbol antippen für ein Produktfoto',
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+              ),
+            ],
+          ),
         TextField(
           controller: _place,
           decoration: const InputDecoration(
-            labelText: 'Raum (optional)',
-            hintText: 'z. B. Keller, Küche, Bad',
+            labelText: 'Zimmer (optional)',
+            hintText: 'z. B. Küche, Bad, Keller',
           ),
           textCapitalization: TextCapitalization.sentences,
         ),

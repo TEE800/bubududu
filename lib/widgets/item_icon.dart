@@ -4,9 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/offline.dart';
 import '../data/store.dart';
+import '../services/product_image.dart';
+import '../services/weather.dart' show httpClientProvider;
 import 'common.dart';
 
 /// Stichworte → Symbol. Das erste passende gewinnt, deshalb stehen
@@ -276,6 +279,21 @@ const _groupByFirstKey = {
   return null;
 }
 
+/// Das Stichwort, an dem ein Artikel erkannt wurde, z. B. „milch“ in
+/// „Bio-Vollmilch“. Hilft bei der Bildsuche. Nichts erkannt: null.
+String? itemKeyword(String name) {
+  final text = name.toLowerCase();
+  final words = text.split(RegExp(r'[^a-zäöüß-]+'));
+  for (final entry in _symbols) {
+    for (final k in entry.$1) {
+      if (k.length <= 3 ? words.contains(k) : text.contains(k)) {
+        return k.endsWith('-') ? null : k;
+      }
+    }
+  }
+  return null;
+}
+
 /// Symbol (Emoji) zu einem Artikelnamen, z. B. „2 Liter Milch“ → 🥛.
 /// Kurze Stichworte (bis 3 Buchstaben) müssen ein ganzes Wort sein,
 /// damit „Eis“ nicht in „Reis“ oder „Ei“ nicht in „Eimer“ gefunden wird.
@@ -417,6 +435,7 @@ Future<void> showItemPhotoSheet(
   required String householdId,
   required String name,
   required bool hasPhoto,
+  ItemImageInfo? autoImage,
 }) async {
   if (name.trim().isEmpty) {
     return showError(context, 'Bitte gib zuerst einen Namen ein.');
@@ -450,14 +469,52 @@ Future<void> showItemPhotoSheet(
           if (hasPhoto)
             ListTile(
               leading: const Icon(Icons.hide_image_outlined),
-              title: const Text('Foto entfernen, Symbol zeigen'),
+              title: Text(
+                autoImage == null
+                    ? 'Foto entfernen, Symbol zeigen'
+                    : 'Eigenes Foto entfernen',
+              ),
               onTap: () => Navigator.of(context).pop(false),
+            ),
+          if (!hasPhoto && autoImage != null && autoImage.shows)
+            ListTile(
+              leading: const Icon(Icons.hide_image_outlined),
+              title: const Text('Passt nicht, lieber Symbol zeigen'),
+              onTap: () => Navigator.of(context).pop(#hideAuto),
+            ),
+          if (!hasPhoto && autoImage != null && !autoImage.shows)
+            ListTile(
+              leading: const Icon(Icons.image_search),
+              title: const Text('Bild automatisch suchen'),
+              onTap: () => Navigator.of(context).pop(#searchAuto),
+            ),
+          if (!hasPhoto &&
+              autoImage != null &&
+              autoImage.shows &&
+              autoImage.page != null)
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Bildquelle: Wikipedia'),
+              onTap: () =>
+                  Navigator.of(context).pop(Uri.parse(autoImage.page!)),
             ),
         ],
       ),
     ),
   );
   if (choice == false) return deleteItemPhoto(store, name);
+  final autoDoc = store.col('itemImages').doc(itemPhotoKey(name));
+  if (choice == #hideAuto) {
+    return writeInBackground(autoDoc.update({'hidden': true}));
+  }
+  if (choice == #searchAuto) {
+    _searching.remove('$householdId/${itemPhotoKey(name)}');
+    return writeInBackground(autoDoc.delete());
+  }
+  if (choice is Uri) {
+    await launchUrl(choice, mode: LaunchMode.externalApplication);
+    return;
+  }
   if (choice is! ImageSource) return;
   final Uint8List? bytes;
   try {
@@ -472,4 +529,165 @@ Future<void> showItemPhotoSheet(
     return;
   }
   await saveItemPhoto(store, name, bytes);
+}
+
+/// households/{id}/itemImages/{key}: das automatisch gefundene Bild je
+/// Artikelname. [url] '' heißt: gesucht, nichts gefunden, oder [hidden]
+/// (ausgeblendet, weil es nicht passte).
+class ItemImageInfo {
+  const ItemImageInfo({required this.url, this.page, this.hidden = false});
+
+  final String url;
+  final String? page;
+  final bool hidden;
+
+  bool get shows => url.isNotEmpty && !hidden;
+}
+
+/// null: für diesen Namen wurde noch nicht gesucht.
+final itemImageProvider = StreamProvider.family<ItemImageInfo?, ItemPhotoKey>(
+  (ref, key) => ref
+      .watch(firestoreProvider)
+      .doc('households/${key.householdId}/itemImages/${itemPhotoKey(key.name)}')
+      .snapshots()
+      .map((s) {
+        final d = s.data();
+        if (d == null) return null;
+        return ItemImageInfo(
+          url: d['url'] as String? ?? '',
+          page: d['page'] as String?,
+          hidden: d['hidden'] == true,
+        );
+      }),
+);
+
+/// Sucht ein Bild zu einem Produkt. Im Test ersetzbar.
+final productImageFinderProvider =
+    Provider<Future<ProductImage?> Function(String name)>((ref) {
+      final client = ref.watch(httpClientProvider);
+      return (name) =>
+          fetchProductImage(client, name, keyword: itemKeyword(name));
+    });
+
+/// Namen, für die schon gesucht wird (nicht doppelt suchen, auch nicht,
+/// solange das Ergebnis noch nicht zurück in Firestore ist).
+final _searching = <String>{};
+
+Future<void> _findItemImage(
+  WidgetRef ref,
+  String householdId,
+  String name,
+) async {
+  final key = '$householdId/${itemPhotoKey(name)}';
+  if (name.trim().isEmpty || !_searching.add(key)) return;
+  final find = ref.read(productImageFinderProvider);
+  final store = ref.read(storeProvider(householdId));
+  try {
+    final image = await find(name);
+    await writeInBackground(
+      store.col('itemImages').doc(itemPhotoKey(name)).set({
+        'name': name.trim(),
+        'url': image?.url ?? '',
+        'page': image?.page,
+        'createdAt': FieldValue.serverTimestamp(),
+      }),
+    );
+  } catch (_) {
+    // Kein Netz: beim nächsten Anzeigen noch mal versuchen.
+    _searching.remove(key);
+  }
+}
+
+/// Großes Bild für eine Kachel: das eigene Produktfoto, sonst das automatisch
+/// gefundene Bild aus Wikipedia, sonst das Symbol auf getöntem Grund. Fehlt
+/// das automatische Bild noch, wird es beim ersten Anzeigen gesucht und für
+/// beide gespeichert. Antippen ([editable]) öffnet die Fotoauswahl.
+class ItemPicture extends ConsumerWidget {
+  const ItemPicture({
+    super.key,
+    required this.householdId,
+    required this.name,
+    this.editable = true,
+  });
+
+  final String householdId;
+  final String name;
+  final bool editable;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final key = (householdId: householdId, name: name);
+    final photo = ref.watch(itemPhotoProvider(key)).value;
+    final auto = ref.watch(itemImageProvider(key));
+    if (photo == null && auto.hasValue && auto.value == null) {
+      Future.microtask(() => _findItemImage(ref, householdId, name));
+    }
+    final info = auto.value;
+    final symbol = _SymbolPicture(name: name);
+    final Widget image;
+    if (photo != null) {
+      image = Image.memory(
+        photo,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        cacheWidth: 600,
+      );
+    } else if (info != null && info.shows) {
+      image = Image.network(
+        info.url,
+        fit: BoxFit.cover,
+        cacheWidth: 600,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : symbol,
+        errorBuilder: (context, error, stack) => symbol,
+      );
+    } else {
+      image = symbol;
+    }
+    if (!editable) return image;
+    return Semantics(
+      button: true,
+      label: 'Bild für $name',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showItemPhotoSheet(
+          context,
+          ref,
+          householdId: householdId,
+          name: name,
+          hasPhoto: photo != null,
+          autoImage: info,
+        ),
+        child: image,
+      ),
+    );
+  }
+}
+
+class _SymbolPicture extends StatelessWidget {
+  const _SymbolPicture({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.primaryContainer, scheme.surfaceContainerHighest],
+        ),
+      ),
+      child: Center(
+        child: FittedBox(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(itemSymbol(name), style: const TextStyle(fontSize: 48)),
+          ),
+        ),
+      ),
+    );
+  }
 }

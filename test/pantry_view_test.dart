@@ -1,4 +1,7 @@
 import 'package:bubududu/features/pantry.dart';
+import 'package:bubududu/services/product_image.dart';
+import 'package:bubududu/widgets/item_icon.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
@@ -20,9 +23,9 @@ void main() {
     _item('Apfelsaft', 'küche', StockLevel.empty),
   ];
 
-  test('nach Räumen: alphabetisch, „Ohne Raum“ zuletzt', () {
+  test('nach Räumen: alphabetisch, „Ohne Zimmer“ zuletzt', () {
     final sections = pantrySections(items, PantrySort.rooms, now);
-    expect(sections.map((s) => s.$1), ['Bad', 'Küche', 'Ohne Raum']);
+    expect(sections.map((s) => s.$1), ['Bad', 'Küche', 'Ohne Zimmer']);
     expect(sections[1].$2.map((i) => i.name), ['Apfelsaft', 'Nudeln']);
   });
 
@@ -60,22 +63,54 @@ void main() {
   group('Kacheln', () {
     setUp(seedHousehold);
 
-    testWidgets('Sortierung umstellen', (tester) async {
+    testWidgets('Sortierung umstellen: Thema, Zimmer, A–Z', (tester) async {
       await db.collection('households/h1/pantry').add({
         'name': 'Zahnpasta',
         'level': 'low',
         'place': 'Bad',
       });
       await pumpPage(tester, const PantryScreen(householdId: 'h1'));
-      expect(find.textContaining('Bad ('), findsOneWidget);
+      // Standard: nach Thema.
+      expect(find.textContaining('Drogerie & Gesundheit ('), findsOneWidget);
+      expect(find.textContaining('Bad ('), findsNothing);
       expect(find.text('🪥'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Sortieren'));
+      await tester.tap(find.text('Zimmer'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Alphabetisch'));
+      expect(find.textContaining('Bad ('), findsOneWidget);
+
+      await tester.tap(find.text('A–Z'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Bad ('), findsNothing);
+      expect(find.textContaining('Drogerie'), findsNothing);
       expect(find.textContaining('Bad'), findsWidgets);
+    });
+
+    testWidgets('Kachel zeigt automatisch gefundenes Bild', (tester) async {
+      await db.collection('households/h1/pantry').add({
+        'name': 'Kaffee',
+        'level': 'full',
+      });
+      final searched = <String>[];
+      await pumpPage(
+        tester,
+        const PantryScreen(householdId: 'h1'),
+        overrides: [
+          productImageFinderProvider.overrideWithValue((name) async {
+            searched.add(name);
+            return const ProductImage(
+              url: 'https://upload.wikimedia.org/kaffee.jpg',
+              page: 'https://de.wikipedia.org/wiki/Kaffee',
+            );
+          }),
+        ],
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(searched, contains('Kaffee'));
+      final saved = await db.doc('households/h1/itemImages/kaffee').get();
+      expect(saved.data()?['url'], 'https://upload.wikimedia.org/kaffee.jpg');
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(Image), findsWidgets);
     });
   });
 }
