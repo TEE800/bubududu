@@ -238,7 +238,7 @@ class _PageTurn extends StatelessWidget {
       builder: (context, child) {
         var offset = 0.0;
         if (controller.hasClients && controller.position.haveDimensions) {
-          offset = (index - (controller.page ?? 0)).clamp(-1.0, 1.0);
+          offset = (index - (controller.page ?? 0)).clamp(-1.0, 1.0).toDouble();
         }
         if (offset == 0) return child!;
         return Transform(
