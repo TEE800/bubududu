@@ -41,7 +41,7 @@ class RecipesScreen extends ConsumerWidget {
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Bilder aus der Galerie'),
               subtitle: const Text(
-                'Ein oder mehrere Screenshots, von oben nach unten antippen',
+                'Screenshots von oben nach unten antippen, weitere kannst du danach nachlegen',
               ),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
@@ -53,36 +53,38 @@ class RecipesScreen extends ConsumerWidget {
 
     final images = <XFile>[];
     try {
-      if (source == ImageSource.gallery) {
-        images.addAll(await pickRecipeImages());
-      } else {
-        while (true) {
-          final photo = await takeRecipePhoto();
-          if (photo == null || !context.mounted) break;
-          images.add(photo);
-          final more = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text(
-                images.length == 1
-                    ? '1 Foto aufgenommen'
-                    : '${images.length} Fotos aufgenommen',
-              ),
-              content: const Text('Geht das Rezept noch weiter?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Weiteres Foto'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Fertig'),
-                ),
-              ],
+      final gallery = source == ImageSource.gallery;
+      while (true) {
+        final picked = gallery
+            ? await pickRecipeImages()
+            : [?await takeRecipePhoto()];
+        if (!context.mounted) return;
+        if (picked.isEmpty) break;
+        images.addAll(picked);
+        // Nachlegen geht immer, auch wenn die Galerie nur ein Bild auf
+        // einmal auswählen lässt.
+        final more = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(
+              images.length == 1
+                  ? '1 Bild ausgewählt'
+                  : '${images.length} Bilder ausgewählt',
             ),
-          );
-          if (more != true) break;
-        }
+            content: const Text('Geht das Rezept noch weiter?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(gallery ? 'Weitere Bilder' : 'Weiteres Foto'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Fertig'),
+              ),
+            ],
+          ),
+        );
+        if (more != true) break;
       }
     } catch (_) {
       if (context.mounted) {
