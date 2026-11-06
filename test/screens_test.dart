@@ -71,7 +71,7 @@ void main() {
     'Notizen': (const NotesScreen(householdId: 'h1'), 'WLAN'),
     'Vorräte': (const PantryScreen(householdId: 'h1'), 'Nudeln'),
     'Reisen': (const TripsScreen(householdId: 'h1'), 'Ostsee'),
-    'Pflege': (const CareScreen(householdId: 'h1'), 'Monstera: Gießen'),
+    'Pflege': (const CareScreen(householdId: 'h1'), 'Gießen alle 7 Tage'),
     'Wir': (const HouseholdScreen(householdId: 'h1'), 'Date-Ideen'),
     'Ideen': (
       const IdeasScreen(householdId: 'h1', kind: IdeaKind.date),

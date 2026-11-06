@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/store.dart';
 import '../util/dates.dart';
+import '../util/symbols.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 
 /// households/{id}/tasks: Haushaltsaufgaben.
@@ -130,32 +133,37 @@ class TasksScreen extends ConsumerWidget {
             ..._sections(list, now).entries.expand(
               (section) => [
                 SectionHeader(section.key),
-                for (final t in section.value)
-                  _TaskTile(
-                    task: t,
-                    names: names,
-                    onToggle: () async {
-                      if (t.done) {
-                        return store.update('tasks', t.id, {'done': false});
-                      }
-                      final messenger = ScaffoldMessenger.of(context);
-                      final next = await completeTask(store, t);
-                      // Wiederkehrende Aufgaben bleiben offen, rücken aber weiter.
-                      if (next != null) {
-                        messenger
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '„${t.title}“ erledigt. '
-                                'Nächstes Mal: ${relativeDay(next)}',
-                              ),
-                            ),
-                          );
-                      }
-                    },
-                    onTap: () => _openEdit(context, t),
-                  ),
+                PicGrid(
+                  children: [
+                    for (final t in section.value)
+                      _TaskTile(
+                        me: store.uid,
+                        task: t,
+                        names: names,
+                        onToggle: () async {
+                          if (t.done) {
+                            return store.update('tasks', t.id, {'done': false});
+                          }
+                          final messenger = ScaffoldMessenger.of(context);
+                          final next = await completeTask(store, t);
+                          // Wiederkehrende Aufgaben bleiben offen, rücken aber weiter.
+                          if (next != null) {
+                            messenger
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '„${t.title}“ erledigt. '
+                                    'Nächstes Mal: ${relativeDay(next)}',
+                                  ),
+                                ),
+                              );
+                          }
+                        },
+                        onTap: () => _openEdit(context, t),
+                      ),
+                  ],
+                ),
               ],
             ),
           ],
@@ -203,12 +211,14 @@ class _TaskTile extends StatelessWidget {
   const _TaskTile({
     required this.task,
     required this.names,
+    required this.me,
     required this.onToggle,
     required this.onTap,
   });
 
   final HouseTask task;
   final Map<String, String> names;
+  final String me;
   final VoidCallback onToggle;
   final VoidCallback onTap;
 
@@ -216,27 +226,24 @@ class _TaskTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final parts = [
       task.assignee.isEmpty ? 'Beide' : names[task.assignee] ?? '?',
-      if (task.due != null && !task.done) dueText(task.due!),
       if (task.repeat != Repeat.none) task.repeat.label,
     ];
     final overdue = task.isOverdue(DateTime.now());
-    return ListTile(
-      leading: Checkbox(value: task.done, onChanged: (_) => onToggle()),
-      title: Text(
-        task.title,
-        style: task.done
-            ? const TextStyle(decoration: TextDecoration.lineThrough)
-            : null,
+    return PicTile(
+      title: task.title,
+      emoji: symbolFor(task.title, taskSymbols, '✨'),
+      tone: toneForAssignee(task.assignee, me),
+      subtitle: parts.join(' · '),
+      badge: task.due != null && !task.done ? dueText(task.due!) : null,
+      badgeIcon: task.repeat != Repeat.none ? Icons.repeat : null,
+      badgeWarn: overdue,
+      done: task.done,
+      corner: TileButton(
+        tooltip: task.done ? 'Wieder offen' : 'Abhaken',
+        icon: Icons.check,
+        active: task.done,
+        onPressed: onToggle,
       ),
-      subtitle: Text(
-        parts.join(' · '),
-        style: overdue
-            ? TextStyle(color: Theme.of(context).colorScheme.error)
-            : null,
-      ),
-      trailing: task.repeat != Repeat.none
-          ? const Icon(Icons.repeat, size: 18)
-          : null,
       onTap: onTap,
     );
   }
