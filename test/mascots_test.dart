@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:bubududu/widgets/mascots.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +10,22 @@ void main() {
     expect(moodForTime(DateTime(2026, 1, 1, 9)), MascotMood.happy);
     expect(moodForTime(DateTime(2026, 1, 1, 12, 30)), MascotMood.hungry);
     expect(moodForTime(DateTime(2026, 1, 1, 23)), MascotMood.sleepy);
+  });
+
+  test('Für jede Stimmung gibt es ein Bild', () {
+    for (final mood in MascotMood.values) {
+      expect(
+        File(Mascots.assetFor(mood)).existsSync(),
+        isTrue,
+        reason: mood.name,
+      );
+    }
+    for (final one in ['dudu', 'bubu']) {
+      expect(
+        File(Mascots.assetFor(MascotMood.happy, only: one)).existsSync(),
+        isTrue,
+      );
+    }
   });
 
   for (final mood in MascotMood.values) {
