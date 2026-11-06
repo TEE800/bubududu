@@ -97,6 +97,47 @@ void main() {
     });
   });
 
+  group('Startseite', () {
+    test('immer ein ernster und ein witziger Tag', () {
+      var day = DateTime(2026, 1, 1);
+      while (day.year == 2026) {
+        final shown = aktionstageFuerStartseite(day);
+        expect(shown.any((e) => !e.$2.witzig), isTrue, reason: '$day');
+        expect(shown.any((e) => e.$2.witzig), isTrue, reason: '$day');
+        for (final (d, _) in shown) {
+          expect(daysBetween(day, d), greaterThanOrEqualTo(0));
+        }
+        day = addDays(day, 1);
+      }
+    });
+
+    test('jeden Tag ein witziger Tag', () {
+      var day = DateTime(2028, 1, 1);
+      while (day.year == 2028) {
+        expect(aktionstageAm(day).any((t) => t.witzig), isTrue,
+            reason: '$day');
+        day = addDays(day, 1);
+      }
+    });
+
+    test('heutige Tage zuerst, fehlende Art vom nächsten Tag', () {
+      // 6.11.: nur der witzige Saxophon-Tag, der ernste kommt am 8.11.
+      final shown = aktionstageFuerStartseite(DateTime(2026, 11, 6, 9));
+      expect(shown.map((e) => e.$2.name), [
+        'Tag der Radiologie',
+        'Tag des Saxophons',
+      ]);
+      expect(shown.first.$1, DateTime(2026, 11, 8));
+      expect(shown.last.$1, DateTime(2026, 11, 6));
+      // 31.10.: beides heute.
+      expect(
+        aktionstageFuerStartseite(DateTime(2026, 10, 31))
+            .map((e) => e.$2.name),
+        ['Reformationstag', 'Weltspartag', 'Halloween'],
+      );
+    });
+  });
+
   group('Zusätze', () {
     test('Ideen und Wikipedia-Titel gehören zu echten Tagen', () {
       final names = <String>{};
