@@ -111,13 +111,23 @@ void main() {
       }
     });
 
+    test('jeden Tag ein witziger Tag', () {
+      var day = DateTime(2028, 1, 1);
+      while (day.year == 2028) {
+        expect(aktionstageAm(day).any((t) => t.witzig), isTrue,
+            reason: '$day');
+        day = addDays(day, 1);
+      }
+    });
+
     test('heutige Tage zuerst, fehlende Art vom nächsten Tag', () {
-      // 5.11.: nur der ernste Tsunami-Tag, der witzige kommt am 6.11.
-      final shown = aktionstageFuerStartseite(DateTime(2026, 11, 5, 9));
+      // 6.11.: nur der witzige Saxophon-Tag, der ernste kommt am 8.11.
+      final shown = aktionstageFuerStartseite(DateTime(2026, 11, 6, 9));
       expect(shown.map((e) => e.$2.name), [
-        'Welttag des Tsunami-Bewusstseins',
+        'Tag der Radiologie',
         'Tag des Saxophons',
       ]);
+      expect(shown.first.$1, DateTime(2026, 11, 8));
       expect(shown.last.$1, DateTime(2026, 11, 6));
       // 31.10.: beides heute.
       expect(
