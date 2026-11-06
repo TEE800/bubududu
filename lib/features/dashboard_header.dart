@@ -2,25 +2,75 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/weather.dart';
+import '../theme.dart';
 import '../util/dates.dart';
 import '../widgets/mascots.dart';
 import 'us.dart';
 import 'weather_screen.dart';
 
-/// Tageszeit für den Himmel oben auf der Startseite.
-enum SkyPhase { morning, day, evening, night }
+/// Kleine Liebesbotschaften für die Sprechblasen, jeden Tag ein anderes Paar.
+/// Links spricht Dudu, rechts Bubu.
+const loveLines = [
+  ('Hab dich lieb! 🥰', 'Ich dich mehr 💕'),
+  ('Du bist toll! ✨', 'Du noch toller 💚'),
+  ('Kuscheln? 🧸', 'Immer! 💞'),
+  ('Mein Lieblingsmensch 💚', 'Für immer 🥰'),
+  ('Schön, dass es dich gibt 🌸', 'Ohne dich wär nix los 💕'),
+  ('Heute wird schön ☀️', 'Mit dir sowieso 💞'),
+  ('Kaffee für dich? ☕', 'Und ein Küsschen 😘'),
+];
 
-SkyPhase skyPhaseFor(DateTime t) => switch (t.hour) {
-  < 6 || >= 21 => SkyPhase.night,
-  < 10 => SkyPhase.morning,
-  < 17 => SkyPhase.day,
-  _ => SkyPhase.evening,
-};
+(String, String) loveLineFor(DateTime day) =>
+    loveLines[DateTime(
+          day.year,
+          day.month,
+          day.day,
+        ).difference(DateTime(2020)).inDays %
+        loveLines.length];
 
-/// Der Kopf der Startseite: "Unsere Wiese". Himmel, Sonne oder Mond,
-/// grüne Hügel und Bubu und Dudu mittendrin. Darüber Begrüßung und Wetter.
-class MeadowHeader extends ConsumerWidget {
-  const MeadowHeader({
+/// Hintergrund der Startseite: Minze oben, Rosa unten, mit kleinen Pünktchen.
+class CuteBackdrop extends StatelessWidget {
+  const CuteBackdrop({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (Theme.of(context).brightness == Brightness.dark) return child;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Cute.mint, Color(0xFFF7F6EE), Color(0xFFFDF0F3)],
+        ),
+      ),
+      child: CustomPaint(painter: _DotsPainter(), child: child),
+    );
+  }
+}
+
+class _DotsPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    const step = 22.0;
+    for (var y = step / 2; y < size.height; y += step) {
+      for (var x = step / 2; x < size.width; x += step) {
+        canvas.drawCircle(Offset(x, y), 1.6, p);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotsPainter old) => false;
+}
+
+/// Der Kopf der Startseite im Cute-Look: Begrüßung mit Glitzer, darunter
+/// eine runde Bildkarte mit Bubu und Dudu, Herzchen, Sprechblasen und
+/// "Seit … Tagen zusammen".
+class CuteHeader extends ConsumerWidget {
+  const CuteHeader({
     super.key,
     required this.householdId,
     required this.title,
@@ -31,140 +81,300 @@ class MeadowHeader extends ConsumerWidget {
 
   final String householdId;
 
-  /// Begrüßung, z. B. "Guten Morgen,\nDudu!".
+  /// Begrüßung, z. B. "Guten Morgen, Dudu!".
   final String title;
   final DateTime now;
   final bool showWeather;
   final VoidCallback onSettings;
 
-  static const _sheetRadius = 28.0;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final top = MediaQuery.paddingOf(context).top;
-    final sheet = Theme.of(context).scaffoldBackgroundColor;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final since = ref.watch(togetherSinceProvider(householdId));
-    final phase = skyPhaseFor(now);
-    const white = Colors.white;
+    final (left, right) = loveLineFor(now);
+    final headline = dark ? scheme.primary : darkGreen;
 
-    return SizedBox(
-      height: top + 320,
-      child: Stack(
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, top + 6, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Positioned.fill(
-            child: CustomPaint(painter: MeadowPainter(phase)),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 26,
-            child: Center(
-              child: Mascots(mood: moodForTime(now), height: 120),
-            ),
-          ),
-          // Oberkante des hellen Bereichs mit den Kacheln.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: _sheetRadius,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: sheet,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(_sheetRadius),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(width: 48, child: _Sparkle('✨', top: 14)),
+              Expanded(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: headline,
+                        fontSize: 28,
+                        height: 1.1,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _DateWeatherLine(
+                      householdId: householdId,
+                      now: now,
+                      showWeather: showWeather,
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            left: 22,
-            right: 64,
-            top: top + 18,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${weekdayLong(now)}, ${now.day}. ${monthNames[now.month - 1]}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+              SizedBox(
+                width: 48,
+                child: IconButton(
+                  tooltip: 'Startseite einrichten',
+                  color: headline,
+                  icon: const Icon(Icons.tune),
+                  onPressed: onSettings,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: white,
-                    fontSize: 30,
-                    height: 1.12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (showWeather) ...[
-                  const SizedBox(height: 10),
-                  _WeatherLine(householdId: householdId),
-                ],
-              ],
-            ),
-          ),
-          Positioned(
-            right: 8,
-            top: top + 8,
-            child: IconButton(
-              tooltip: 'Startseite einrichten',
-              color: white,
-              icon: const Icon(Icons.tune),
-              onPressed: onSettings,
-            ),
-          ),
-          if (since != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 8,
-              child: Center(
-                child: _TogetherPill(days: daysBetween(since, today())),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _HeroCard(
+            left: left,
+            right: right,
+            mood: moodForTime(now),
+            days: since == null ? null : daysBetween(since, today()),
+          ),
         ],
       ),
     );
   }
 }
 
-class _WeatherLine extends ConsumerWidget {
-  const _WeatherLine({required this.householdId});
+class _Sparkle extends StatelessWidget {
+  const _Sparkle(this.emoji, {this.top = 0});
+
+  final String emoji;
+  final double top;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(top: top),
+    child: Text(emoji, style: const TextStyle(fontSize: 22)),
+  );
+}
+
+class _DateWeatherLine extends ConsumerWidget {
+  const _DateWeatherLine({
+    required this.householdId,
+    required this.now,
+    required this.showWeather,
+  });
 
   final String householdId;
+  final DateTime now;
+  final bool showWeather;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final place = ref.watch(weatherLocationProvider(householdId)).value;
-    if (place == null) return const SizedBox.shrink();
-    final w = ref
-        .watch(weatherProvider((lat: place.lat, lng: place.lng)))
-        .value;
-    if (w == null) return const SizedBox.shrink();
-    final (text, icon) = describeWeather(w.code);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: Colors.white, size: 20),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            '${w.temperature.round()}° · $text',
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+    final date =
+        '${weekdayLong(now)}, ${now.day}. ${monthNames[now.month - 1]}';
+    String? weather;
+    if (showWeather) {
+      final place = ref.watch(weatherLocationProvider(householdId)).value;
+      final w = place == null
+          ? null
+          : ref.watch(weatherProvider((lat: place.lat, lng: place.lng))).value;
+      if (w != null) {
+        weather = '${w.temperature.round()}° ${describeWeather(w.code).$1}';
+      }
+    }
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Text(
+      weather == null ? date : '$date · $weather',
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: dark ? null : const Color(0xFF5D8A63),
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+}
+
+/// Runde Karte mit weißem Rand und den beiden Figuren.
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({
+    required this.left,
+    required this.right,
+    required this.mood,
+    required this.days,
+  });
+
+  final String left;
+  final String right;
+  final MascotMood mood;
+  final int? days;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 270,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(
+          color: dark ? scheme.surfaceContainerHighest : Colors.white,
+          width: 4,
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark
+              ? [const Color(0xFF1F3A25), const Color(0xFF14281A)]
+              : const [Color(0xFFE9F6E3), Color(0xFFD3ECCB)],
+        ),
+        boxShadow: dark
+            ? null
+            : const [
+                BoxShadow(color: Cute.mintDeep, offset: Offset(0, 7)),
+                BoxShadow(
+                  color: Color(0x221B5E20),
+                  blurRadius: 24,
+                  offset: Offset(0, 12),
+                ),
+              ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(36),
+        child: Stack(
+          children: [
+            // Heller Kreis hinter den beiden und ein Boden-Schatten.
+            Positioned(
+              left: 30,
+              right: 30,
+              top: 26,
+              bottom: -60,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: dark ? 0.05 : 0.45),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 36,
+              child: Center(child: Mascots(mood: mood, height: 196)),
+            ),
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 8,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _Heart(size: 16, opacity: 0.7, dy: 14),
+                  SizedBox(width: 8),
+                  _Heart(size: 26, opacity: 1, dy: 0),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 10,
+              top: 142,
+              child: _Bubble(text: left, tailLeft: true),
+            ),
+            Positioned(
+              right: 10,
+              top: 14,
+              child: _Bubble(text: right, tailLeft: true, pink: true),
+            ),
+            if (days != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 12,
+                child: Center(child: _TogetherPill(days: days!)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Heart extends StatelessWidget {
+  const _Heart({required this.size, required this.opacity, required this.dy});
+
+  final double size;
+  final double opacity;
+  final double dy;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(top: dy),
+    child: Icon(
+      Icons.favorite,
+      size: size,
+      color: const Color(0xFFE8505B).withValues(alpha: opacity),
+    ),
+  );
+}
+
+/// Sprechblase mit kleinem Zipfel unten.
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.text, this.tailLeft = true, this.pink = false});
+
+  final String text;
+  final bool tailLeft;
+  final bool pink;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = pink ? Cute.pink : Colors.white;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 170),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: tailLeft ? 22 : null,
+            right: tailLeft ? null : 22,
+            bottom: -6,
+            child: Transform.rotate(
+              angle: 0.785,
+              child: Container(width: 14, height: 14, color: color),
             ),
           ),
-        ),
-      ],
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: const [
+                BoxShadow(color: Cute.pinkDeep, offset: Offset(0, 3)),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Text(
+                text,
+                maxLines: 2,
+                style: const TextStyle(
+                  color: Cute.leaf,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -176,40 +386,22 @@ class _TogetherPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: dark ? scheme.surfaceContainerHighest : Colors.white,
+        color: darkGreen,
         borderRadius: BorderRadius.circular(99),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33003310),
-            blurRadius: 16,
-            offset: Offset(0, 5),
-          ),
-        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.favorite, size: 16, color: scheme.primary),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Seit ${_thousands(days)} ${days == 1 ? 'Tag' : 'Tagen'} zusammen',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        child: Text(
+          '💞 Seit ${_thousands(days)} ${days == 1 ? 'Tag' : 'Tagen'} zusammen',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
         ),
       ),
     );
@@ -224,131 +416,4 @@ String _thousands(int n) {
     out.write(s[i]);
   }
   return out.toString();
-}
-
-/// Malt Himmel, Sonne oder Mond mit Sternen, Wolken und zwei Hügel.
-class MeadowPainter extends CustomPainter {
-  MeadowPainter(this.phase);
-
-  final SkyPhase phase;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final rect = Offset.zero & size;
-    final night = phase == SkyPhase.night;
-
-    final sky = switch (phase) {
-      SkyPhase.morning => const [
-        Color(0xFF2F7A52),
-        Color(0xFF7DB886),
-        Color(0xFFF1D9A6),
-      ],
-      SkyPhase.day => const [
-        Color(0xFF2E7D4F),
-        Color(0xFF5AA36F),
-        Color(0xFF9FD09A),
-      ],
-      SkyPhase.evening => const [
-        Color(0xFF1E5536),
-        Color(0xFF7E9858),
-        Color(0xFFEFAF73),
-      ],
-      SkyPhase.night => const [
-        Color(0xFF0A2013),
-        Color(0xFF14361E),
-        Color(0xFF285C35),
-      ],
-    };
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: sky,
-        ).createShader(rect),
-    );
-
-    if (night) {
-      final star = Paint()..color = const Color(0xCCFFFFFF);
-      const stars = [
-        (0.08, 0.40, 1.4),
-        (0.22, 0.55, 1.0),
-        (0.35, 0.46, 1.6),
-        (0.52, 0.36, 1.1),
-        (0.62, 0.52, 1.5),
-        (0.70, 0.30, 1.0),
-        (0.93, 0.48, 1.3),
-        (0.46, 0.60, 0.9),
-        (0.15, 0.66, 1.2),
-        (0.88, 0.64, 1.0),
-      ];
-      for (final (x, y, r) in stars) {
-        canvas.drawCircle(Offset(w * x, h * y), r, star);
-      }
-      final c = Offset(w * 0.8, h * 0.4);
-      canvas.drawCircle(c, 40, Paint()..color = const Color(0x14FFF4CC));
-      final moon = Path.combine(
-        PathOperation.difference,
-        Path()..addOval(Rect.fromCircle(center: c, radius: 24)),
-        Path()
-          ..addOval(
-            Rect.fromCircle(center: c + const Offset(10, -8), radius: 21),
-          ),
-      );
-      canvas.drawPath(moon, Paint()..color = const Color(0xFFFFF1C2));
-    } else {
-      final low = phase != SkyPhase.day;
-      final c = Offset(w * 0.8, h * (low ? 0.56 : 0.44));
-      final sun = switch (phase) {
-        SkyPhase.evening => const Color(0xFFFFC27A),
-        SkyPhase.morning => const Color(0xFFFFD98A),
-        _ => const Color(0xFFFFE08A),
-      };
-      canvas.drawCircle(c, 58, Paint()..color = sun.withValues(alpha: 0.12));
-      canvas.drawCircle(c, 44, Paint()..color = sun.withValues(alpha: 0.25));
-      canvas.drawCircle(c, 30, Paint()..color = sun);
-    }
-
-    final cloud = Paint()
-      ..color = Colors.white.withValues(alpha: night ? 0.10 : 0.85);
-    _cloud(canvas, Offset(w * 0.10, h * 0.64), 1.0, cloud);
-    _cloud(canvas, Offset(w * 0.60, h * 0.60), 0.7, cloud);
-
-    final backHill = night ? const Color(0xFF1E4A27) : const Color(0xFF3F8F4F);
-    final frontHill = night ? const Color(0xFF123519) : const Color(0xFF1B5E20);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.18, h * 1.0),
-        width: w * 1.35,
-        height: h * 0.62,
-      ),
-      Paint()..color = backHill,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.88, h * 1.04),
-        width: w * 1.45,
-        height: h * 0.6,
-      ),
-      Paint()..color = frontHill,
-    );
-  }
-
-  void _cloud(Canvas canvas, Offset at, double s, Paint p) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(at.dx, at.dy, 92 * s, 26 * s),
-        Radius.circular(13 * s),
-      ),
-      p,
-    );
-    canvas.drawCircle(at + Offset(30 * s, 4 * s), 17 * s, p);
-    canvas.drawCircle(at + Offset(56 * s, 2 * s), 13 * s, p);
-  }
-
-  @override
-  bool shouldRepaint(MeadowPainter old) => old.phase != phase;
 }
