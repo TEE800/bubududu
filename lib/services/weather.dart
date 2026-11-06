@@ -204,7 +204,10 @@ final weatherProvider =
         'timezone': 'auto',
         'forecast_days': '7',
       });
-      final res = await ref.watch(httpClientProvider).get(uri);
+      final res = await ref
+          .watch(httpClientProvider)
+          .get(uri)
+          .timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) {
         throw Exception('Wetter nicht erreichbar (${res.statusCode})');
       }
@@ -217,7 +220,7 @@ Future<List<Place>> searchPlaces(http.Client client, String query) async {
     'count': '6',
     'language': 'de',
   });
-  final res = await client.get(uri);
+  final res = await client.get(uri).timeout(const Duration(seconds: 15));
   if (res.statusCode != 200) return const [];
   final results =
       (jsonDecode(res.body) as Map<String, dynamic>)['results'] as List? ??
@@ -248,7 +251,7 @@ Future<String?> placeName(http.Client client, double lat, double lng) async {
   final res = await client.get(
     uri,
     headers: {'User-Agent': 'bubududu/1.0 (de.bubududu.bubududu)'},
-  );
+  ).timeout(const Duration(seconds: 8));
   if (res.statusCode != 200) return null;
   final address =
       (jsonDecode(res.body) as Map<String, dynamic>)['address'] as Map? ??

@@ -143,7 +143,7 @@ class CuteHeader extends ConsumerWidget {
           _HeroCard(
             left: left,
             right: right,
-            mood: moodForTime(now),
+            now: now,
             days: since == null ? null : daysBetween(since, today()),
           ),
         ],
@@ -205,18 +205,19 @@ class _DateWeatherLine extends ConsumerWidget {
   }
 }
 
-/// Runde Karte mit weißem Rand und den beiden Figuren.
+/// Runde Karte mit weißem Rand: die Wiese mit den beiden Figuren.
+/// Auf der Startseite sind die zwei immer fröhlich, nie hungrig oder müde.
 class _HeroCard extends StatelessWidget {
   const _HeroCard({
     required this.left,
     required this.right,
-    required this.mood,
+    required this.now,
     required this.days,
   });
 
   final String left;
   final String right;
-  final MascotMood mood;
+  final DateTime now;
   final int? days;
 
   @override
@@ -230,13 +231,6 @@ class _HeroCard extends StatelessWidget {
         border: Border.all(
           color: dark ? scheme.surfaceContainerHighest : Colors.white,
           width: 4,
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: dark
-              ? [const Color(0xFF1F3A25), const Color(0xFF14281A)]
-              : const [Color(0xFFE9F6E3), Color(0xFFD3ECCB)],
         ),
         boxShadow: dark
             ? null
@@ -253,24 +247,17 @@ class _HeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(36),
         child: Stack(
           children: [
-            // Heller Kreis hinter den beiden und ein Boden-Schatten.
-            Positioned(
-              left: 30,
-              right: 30,
-              top: 26,
-              bottom: -60,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: dark ? 0.05 : 0.45),
-                ),
-              ),
+            // Unsere Wiese: Himmel je nach Tageszeit, Sonne oder Mond, Hügel.
+            Positioned.fill(
+              child: CustomPaint(painter: MeadowPainter(skyPhaseFor(now))),
             ),
             Positioned(
               left: 0,
               right: 0,
               bottom: 36,
-              child: Center(child: Mascots(mood: mood, height: 196)),
+              child: Center(
+                child: Mascots(mood: MascotMood.happy, height: 196),
+              ),
             ),
             const Positioned(
               left: 0,
@@ -416,4 +403,139 @@ String _thousands(int n) {
     out.write(s[i]);
   }
   return out.toString();
+}
+
+/// Tageszeit für den Himmel auf der Wiese.
+enum SkyPhase { morning, day, evening, night }
+
+SkyPhase skyPhaseFor(DateTime t) => switch (t.hour) {
+  < 6 || >= 21 => SkyPhase.night,
+  < 10 => SkyPhase.morning,
+  < 17 => SkyPhase.day,
+  _ => SkyPhase.evening,
+};
+
+/// Malt Himmel, Sonne oder Mond mit Sternen, Wolken und zwei grüne Hügel.
+/// Sonne und Mond stehen oben links, rechts oben ist Platz für die
+/// Sprechblase.
+class MeadowPainter extends CustomPainter {
+  MeadowPainter(this.phase);
+
+  final SkyPhase phase;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final rect = Offset.zero & size;
+    final night = phase == SkyPhase.night;
+
+    final sky = switch (phase) {
+      SkyPhase.morning => const [
+        Color(0xFF8CCB9B),
+        Color(0xFFCFE8C4),
+        Color(0xFFFBE3B8),
+      ],
+      SkyPhase.day => const [
+        Color(0xFF9ED6B0),
+        Color(0xFFCDEBCF),
+        Color(0xFFE9F6E3),
+      ],
+      SkyPhase.evening => const [
+        Color(0xFF7FB58F),
+        Color(0xFFF2C9A0),
+        Color(0xFFF6B7A8),
+      ],
+      SkyPhase.night => const [
+        Color(0xFF0E2A18),
+        Color(0xFF17391F),
+        Color(0xFF285C35),
+      ],
+    };
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: sky,
+        ).createShader(rect),
+    );
+
+    final c = Offset(w * 0.14, h * 0.2);
+    if (night) {
+      final star = Paint()..color = const Color(0xCCFFFFFF);
+      const stars = [
+        (0.30, 0.10, 1.4),
+        (0.42, 0.24, 1.0),
+        (0.58, 0.08, 1.6),
+        (0.66, 0.30, 1.1),
+        (0.08, 0.46, 1.2),
+        (0.90, 0.40, 1.3),
+        (0.24, 0.36, 0.9),
+        (0.80, 0.56, 1.0),
+      ];
+      for (final (x, y, r) in stars) {
+        canvas.drawCircle(Offset(w * x, h * y), r, star);
+      }
+      canvas.drawCircle(c, 30, Paint()..color = const Color(0x14FFF4CC));
+      final moon = Path.combine(
+        PathOperation.difference,
+        Path()..addOval(Rect.fromCircle(center: c, radius: 18)),
+        Path()
+          ..addOval(
+            Rect.fromCircle(center: c + const Offset(8, -6), radius: 16),
+          ),
+      );
+      canvas.drawPath(moon, Paint()..color = const Color(0xFFFFF1C2));
+    } else {
+      final sun = switch (phase) {
+        SkyPhase.evening => const Color(0xFFFFB877),
+        SkyPhase.morning => const Color(0xFFFFD98A),
+        _ => const Color(0xFFFFE08A),
+      };
+      canvas.drawCircle(c, 40, Paint()..color = sun.withValues(alpha: 0.18));
+      canvas.drawCircle(c, 30, Paint()..color = sun.withValues(alpha: 0.35));
+      canvas.drawCircle(c, 21, Paint()..color = sun);
+    }
+
+    final cloud = Paint()
+      ..color = Colors.white.withValues(alpha: night ? 0.08 : 0.9);
+    _cloud(canvas, Offset(w * 0.02, h * 0.44), 0.7, cloud);
+    _cloud(canvas, Offset(w * 0.74, h * 0.5), 0.6, cloud);
+
+    final backHill = night ? const Color(0xFF1E4A27) : const Color(0xFF8BC98A);
+    final frontHill = night ? const Color(0xFF123519) : const Color(0xFF5FAE6A);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.15, h * 1.02),
+        width: w * 1.4,
+        height: h * 0.5,
+      ),
+      Paint()..color = backHill,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.9, h * 1.06),
+        width: w * 1.5,
+        height: h * 0.5,
+      ),
+      Paint()..color = frontHill,
+    );
+  }
+
+  void _cloud(Canvas canvas, Offset at, double s, Paint p) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(at.dx, at.dy, 92 * s, 26 * s),
+        Radius.circular(13 * s),
+      ),
+      p,
+    );
+    canvas.drawCircle(at + Offset(30 * s, 4 * s), 17 * s, p);
+    canvas.drawCircle(at + Offset(56 * s, 2 * s), 13 * s, p);
+  }
+
+  @override
+  bool shouldRepaint(MeadowPainter old) => old.phase != phase;
 }

@@ -292,7 +292,7 @@ class _TasksMini extends ConsumerWidget {
         ref.watch(tasksProvider(householdId)).value ?? const <HouseTask>[];
     final due = tasks.where((t) => t.isOverdue(now) || t.isDueToday(now));
     return _MiniTile(
-      mood: MascotMood.cleaning,
+      mood: MascotMood.love,
       value: due.isEmpty ? '✓' : '${due.length}',
       label: due.isEmpty ? 'alles erledigt' : 'Aufgaben offen',
       onTap: onTap,
@@ -312,7 +312,7 @@ class _ShoppingMini extends ConsumerWidget {
         ref.watch(shoppingItemsProvider(householdId)).value ?? const [];
     final open = items.where((i) => !i.done).length;
     return _MiniTile(
-      mood: MascotMood.shopping,
+      mood: MascotMood.happy,
       tone: CuteTone.pink,
       value: open == 0 ? '✓' : '$open',
       label: open == 0 ? 'alles eingekauft' : 'zum Einkaufen',
@@ -338,7 +338,7 @@ class _MealMini extends ConsumerWidget {
         : recipes[today().difference(DateTime(2020)).inDays % recipes.length]
               .title;
     return _MiniTile(
-      mood: MascotMood.hungry,
+      mood: MascotMood.love,
       tone: CuteTone.vanilla,
       value: todayMeal ?? idea ?? 'Noch offen',
       label: todayMeal != null
