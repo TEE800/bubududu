@@ -19,14 +19,18 @@ final weatherAutoProvider = Provider.family<bool, String>(
 final devicePlaceProvider = FutureProvider<Place>((ref) async {
   final error = await ensureLocationPermission();
   if (error != null) throw Exception(error);
+  // Manche Handys melden sich nie zurück, dann lieber aufgeben als ewig laden.
   final position =
-      await Geolocator.getLastKnownPosition() ??
+      await Geolocator.getLastKnownPosition().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      ) ??
       await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.low,
           timeLimit: Duration(seconds: 15),
         ),
-      );
+      ).timeout(const Duration(seconds: 20));
   final name = await placeName(
     ref.watch(httpClientProvider),
     position.latitude,
@@ -44,14 +48,16 @@ final weatherLocationProvider = Provider.family<AsyncValue<Place?>, String>((
   ref,
   householdId,
 ) {
-  if (ref.watch(weatherAutoProvider(householdId))) {
-    return ref.watch(devicePlaceProvider);
-  }
-  return AsyncData(
-    Place.fromMap(
-      ref.watch(householdDataProvider(householdId)).value?['weatherPlace'],
-    ),
+  final saved = Place.fromMap(
+    ref.watch(householdDataProvider(householdId)).value?['weatherPlace'],
   );
+  if (ref.watch(weatherAutoProvider(householdId))) {
+    final device = ref.watch(devicePlaceProvider);
+    // Klappt der Standort nicht, gilt der eingestellte Ort.
+    if (device.hasError && saved != null) return AsyncData(saved);
+    return device;
+  }
+  return AsyncData(saved);
 });
 
 String _time(DateTime t) =>
