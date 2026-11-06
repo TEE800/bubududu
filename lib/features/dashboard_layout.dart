@@ -12,6 +12,7 @@ enum DashTile {
   aktionstage('Aktionstage', Icons.celebration_outlined),
   weather('Wetter', Icons.wb_sunny_outlined),
   today('Aufgaben heute', Icons.today),
+  pinboard('Pinnwand', Icons.push_pin_outlined),
   upcoming('Nächste Termine', Icons.event),
   shopping('Einkaufsliste', Icons.shopping_cart_outlined),
   meal('Essen', Icons.restaurant),

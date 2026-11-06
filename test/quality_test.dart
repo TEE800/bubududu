@@ -273,8 +273,11 @@ void main() {
         final style = DefaultTextStyle.of(
           tester.element(find.text('Erledigte löschen')),
         ).style.merge(label.style);
-        // Ohne eigene Farbe wäre der Text dunkelgrün auf dunkelgrün.
-        expect(style.color, Colors.white);
+        // Der Knopf nimmt die Schriftfarbe der Leiste, nicht die Knopffarbe.
+        expect(
+          style.color,
+          appTheme(Brightness.light).appBarTheme.foregroundColor,
+        );
 
         await tester.tap(find.text('Erledigte löschen'));
         for (var i = 0; i < 5; i++) {

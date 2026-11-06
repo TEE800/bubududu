@@ -133,6 +133,8 @@ void main() {
           onOpenPage: (_) {},
         ),
       );
+      await tester.ensureVisible(find.text('Wetter in Leipzig'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Wetter in Leipzig'));
       await tester.pumpAndSettle();
       expect(find.byType(WeatherScreen), findsOneWidget);

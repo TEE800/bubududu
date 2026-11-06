@@ -10,7 +10,10 @@ import '../services/weather.dart';
 import '../util/aktionstage.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
+import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/mascots.dart';
 import 'aktionstag_sheet.dart';
 import 'calendar.dart';
 import 'care.dart';
@@ -22,6 +25,7 @@ import 'finance.dart';
 import 'health.dart';
 import 'location.dart';
 import 'meals.dart';
+import 'notes.dart';
 import 'tasks.dart';
 import 'us.dart';
 import 'weather_screen.dart';
@@ -81,115 +85,120 @@ class DashboardScreen extends ConsumerWidget {
     // als große Karte.
     final quick = [
       for (final t in visible)
-        if (t == DashTile.today ||
-            t == DashTile.shopping ||
-            t == DashTile.meal)
+        if (t == DashTile.today || t == DashTile.shopping || t == DashTile.meal)
           t,
     ];
 
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: Scaffold(
-        body: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(weatherProvider);
-            ref.invalidate(devicePlaceProvider);
-            ref.invalidate(stockQuoteProvider);
-            ref.invalidate(euroQuoteProvider);
-          },
-          child: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
-            children: [
-              MeadowHeader(
-                householdId: householdId,
-                title: name.isEmpty ? greeting : '$greeting,\n$name!',
-                now: now,
-                showWeather: visible.contains(DashTile.weather),
-                onSettings: openSettings,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (quick.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (final (i, t) in quick.indexed) ...[
-                                if (i > 0) const SizedBox(width: 10),
-                                Expanded(
-                                  child: switch (t) {
-                                    DashTile.today => _TasksMini(
-                                      householdId: householdId,
-                                      onTap: () => onOpenTab(2),
-                                    ),
-                                    DashTile.shopping => _ShoppingMini(
-                                      householdId: householdId,
-                                      onTap: () => onOpenTab(1),
-                                    ),
-                                    _ => _MealMini(
-                                      householdId: householdId,
-                                      onTap: () => onOpenPage(
-                                        MealPlanScreen(
-                                          householdId: householdId,
+        body: CuteBackdrop(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(weatherProvider);
+              ref.invalidate(devicePlaceProvider);
+              ref.invalidate(stockQuoteProvider);
+              ref.invalidate(euroQuoteProvider);
+            },
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                CuteHeader(
+                  householdId: householdId,
+                  title: name.isEmpty ? '$greeting!' : '$greeting, $name!',
+                  now: now,
+                  showWeather: visible.contains(DashTile.weather),
+                  onSettings: openSettings,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (quick.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final (i, t) in quick.indexed) ...[
+                                  if (i > 0) const SizedBox(width: 10),
+                                  Expanded(
+                                    child: switch (t) {
+                                      DashTile.today => _TasksMini(
+                                        householdId: householdId,
+                                        onTap: () => onOpenTab(2),
+                                      ),
+                                      DashTile.shopping => _ShoppingMini(
+                                        householdId: householdId,
+                                        onTap: () => onOpenTab(1),
+                                      ),
+                                      _ => _MealMini(
+                                        householdId: householdId,
+                                        onTap: () => onOpenPage(
+                                          MealPlanScreen(
+                                            householdId: householdId,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  },
-                                ),
+                                    },
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    for (final tile in visible)
-                      switch (tile) {
-                        DashTile.aktionstage => _AktionstageCard(now: now),
-                        DashTile.weather => _WeatherCard(
-                          householdId: householdId,
-                        ),
-                        DashTile.today => _TodayCard(
-                          householdId: householdId,
-                          onOpenTab: onOpenTab,
-                        ),
-                        DashTile.upcoming => _UpcomingCard(
-                          householdId: householdId,
-                          onOpenTab: onOpenTab,
-                        ),
-                        DashTile.shopping ||
-                        DashTile.meal => const SizedBox.shrink(),
-                        DashTile.money => _MoneyCard(
-                          householdId: householdId,
-                          onOpenPage: onOpenPage,
-                        ),
-                        DashTile.reminders => _RemindersCard(
-                          householdId: householdId,
-                          onOpenPage: onOpenPage,
-                        ),
-                        DashTile.health => _HealthCard(
-                          householdId: householdId,
-                          onOpenPage: onOpenPage,
-                        ),
-                        DashTile.depot => _DepotCard(onOpenPage: onOpenPage),
-                        DashTile.stocks => _StocksCard(
-                          householdId: householdId,
-                        ),
-                        DashTile.together => TogetherCard(
-                          householdId: householdId,
-                        ),
-                        DashTile.location => _LocationCard(
-                          householdId: householdId,
-                          onOpenPage: onOpenPage,
-                        ),
-                      },
-                  ],
+                      for (final tile in visible)
+                        switch (tile) {
+                          DashTile.aktionstage => _AktionstageCard(now: now),
+                          DashTile.weather => _WeatherCard(
+                            householdId: householdId,
+                          ),
+                          DashTile.today => _TodayCard(
+                            householdId: householdId,
+                            onOpenTab: onOpenTab,
+                          ),
+                          DashTile.pinboard => _PinboardCard(
+                            householdId: householdId,
+                            onOpenPage: onOpenPage,
+                          ),
+                          DashTile.upcoming => _UpcomingCard(
+                            householdId: householdId,
+                            onOpenTab: onOpenTab,
+                          ),
+                          DashTile.shopping ||
+                          DashTile.meal => const SizedBox.shrink(),
+                          DashTile.money => _MoneyCard(
+                            householdId: householdId,
+                            onOpenPage: onOpenPage,
+                          ),
+                          DashTile.reminders => _RemindersCard(
+                            householdId: householdId,
+                            onOpenPage: onOpenPage,
+                          ),
+                          DashTile.health => _HealthCard(
+                            householdId: householdId,
+                            onOpenPage: onOpenPage,
+                          ),
+                          DashTile.depot => _DepotCard(onOpenPage: onOpenPage),
+                          DashTile.stocks => _StocksCard(
+                            householdId: householdId,
+                          ),
+                          DashTile.together => TogetherCard(
+                            householdId: householdId,
+                          ),
+                          DashTile.location => _LocationCard(
+                            householdId: householdId,
+                            onOpenPage: onOpenPage,
+                          ),
+                        },
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -197,59 +206,73 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-/// Kleine Kachel oben unter dem Himmel: Symbol, große Zahl, kurzer Text.
+/// Kleine Kachel oben unter dem Bild: Bubu und Dudu in passender Stimmung,
+/// große Zahl, kurzer Text. [tone] wählt die Pastellfarbe.
 class _MiniTile extends StatelessWidget {
   const _MiniTile({
-    required this.icon,
+    required this.mood,
     required this.value,
     required this.label,
     required this.onTap,
+    this.tone = CuteTone.mint,
     this.small = false,
   });
 
-  final IconData icon;
+  final MascotMood mood;
   final String value;
   final String label;
   final VoidCallback onTap;
+  final CuteTone tone;
 
   /// Für längere Werte wie den Namen eines Gerichts.
   final bool small;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 22, color: scheme.primary),
-              const Spacer(),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                maxLines: small ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: small ? 15 : 22,
-                  height: 1.15,
-                  fontWeight: FontWeight.w800,
-                ),
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return CuteBox(
+      tone: tone,
+      radius: 26,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(7, 7, 7, 10),
+        child: Column(
+          children: [
+            Container(
+              height: 60,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: dark ? Colors.white10 : tone.soft,
+                borderRadius: BorderRadius.circular(19),
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
+              alignment: Alignment.bottomCenter,
+              clipBehavior: Clip.antiAlias,
+              child: Mascots(mood: mood, height: 58),
+            ),
+            const Spacer(),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              maxLines: small ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: small ? 15 : 24,
+                height: 1.1,
+                fontWeight: FontWeight.w700,
+                color: dark ? null : tone.strong,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
       ),
     );
@@ -269,7 +292,7 @@ class _TasksMini extends ConsumerWidget {
         ref.watch(tasksProvider(householdId)).value ?? const <HouseTask>[];
     final due = tasks.where((t) => t.isOverdue(now) || t.isDueToday(now));
     return _MiniTile(
-      icon: Icons.cleaning_services_outlined,
+      mood: MascotMood.cleaning,
       value: due.isEmpty ? '✓' : '${due.length}',
       label: due.isEmpty ? 'alles erledigt' : 'Aufgaben offen',
       onTap: onTap,
@@ -289,7 +312,8 @@ class _ShoppingMini extends ConsumerWidget {
         ref.watch(shoppingItemsProvider(householdId)).value ?? const [];
     final open = items.where((i) => !i.done).length;
     return _MiniTile(
-      icon: Icons.shopping_cart_outlined,
+      mood: MascotMood.shopping,
+      tone: CuteTone.pink,
       value: open == 0 ? '✓' : '$open',
       label: open == 0 ? 'alles eingekauft' : 'zum Einkaufen',
       onTap: onTap,
@@ -314,7 +338,8 @@ class _MealMini extends ConsumerWidget {
         : recipes[today().difference(DateTime(2020)).inDays % recipes.length]
               .title;
     return _MiniTile(
-      icon: Icons.restaurant_outlined,
+      mood: MascotMood.hungry,
+      tone: CuteTone.vanilla,
       value: todayMeal ?? idea ?? 'Noch offen',
       label: todayMeal != null
           ? 'heute essen'
@@ -346,32 +371,38 @@ class _DashCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: color,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+    // Eine gelbe Karte (Aktionstag) bekommt auch den gelben Rand.
+    final t = color == null ? CuteTone.mint : CuteTone.vanilla;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: CuteBox(
+        tone: t,
+        color: color,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: color == null
+                      color: dark
                           ? scheme.primaryContainer
-                          : Colors.white.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(11),
+                          : (color == null
+                                ? t.soft
+                                : Colors.white.withValues(alpha: 0.7)),
+                      shape: BoxShape.circle,
                     ),
                     child: Icon(
                       icon,
                       size: 19,
-                      color: scheme.onPrimaryContainer,
+                      color: dark ? scheme.onPrimaryContainer : t.strong,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -566,12 +597,13 @@ class _TodayCard extends ConsumerWidget {
     final tasks =
         ref.watch(tasksProvider(householdId)).value ?? const <HouseTask>[];
     final names = memberNames(ref, householdId);
+    final me = ref.watch(uidProvider);
     final due = tasks
         .where((t) => t.isOverdue(now) || t.isDueToday(now))
         .toList();
     return _DashCard(
       icon: Icons.cleaning_services_outlined,
-      title: 'Aufgaben heute',
+      title: 'Heute zusammen erledigen',
       onTap: () => onOpenTab(2),
       child: due.isEmpty
           ? const Text('Nichts fällig. Genießt den Tag!')
@@ -584,6 +616,7 @@ class _TodayCard extends ConsumerWidget {
                     who: t.assignee.isEmpty
                         ? 'Beide'
                         : names[t.assignee] ?? '?',
+                    tone: toneForAssignee(t.assignee, me),
                     overdue: t.isOverdue(now),
                   ),
                 if (due.length > 5) Text('und ${due.length - 5} weitere'),
@@ -599,54 +632,125 @@ class _TaskRow extends StatelessWidget {
     required this.title,
     required this.who,
     required this.overdue,
+    this.tone = CuteTone.mint,
   });
 
   final String title;
   final String who;
   final bool overdue;
+  final CuteTone tone;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final accent = overdue ? scheme.error : scheme.primary;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ring = overdue
+        ? scheme.error
+        : (dark ? scheme.primary : const Color(0xFF9FD39A));
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           Container(
-            width: 20,
-            height: 20,
+            width: 22,
+            height: 22,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: accent.withValues(alpha: 0.6), width: 2),
+              border: Border.all(color: ring, width: 2.5),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               overdue ? '$title, überfällig' : title,
-              style: overdue ? TextStyle(color: scheme.error) : null,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: overdue ? scheme.error : null,
+              ),
             ),
           ),
           const SizedBox(width: 8),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: scheme.primaryContainer,
+              color: dark ? scheme.primaryContainer : tone.soft,
               borderRadius: BorderRadius.circular(99),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               child: Text(
                 who,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: scheme.onPrimaryContainer,
+                  color: dark ? scheme.onPrimaryContainer : tone.strong,
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Die angepinnten Zettel aus "Notizen" in Rosa, wie ein Liebesbrief.
+class _PinboardCard extends ConsumerWidget {
+  const _PinboardCard({required this.householdId, required this.onOpenPage});
+
+  final String householdId;
+  final void Function(Widget page) onOpenPage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notes = ref.watch(notesProvider(householdId)).value ?? const [];
+    final pinned = notes.where((n) => n.pinned).take(3).toList();
+    if (pinned.isEmpty) return const SizedBox.shrink();
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: CuteBox(
+        tone: CuteTone.pink,
+        color: dark ? null : Cute.pink,
+        onTap: () => onOpenPage(NotesScreen(householdId: householdId)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('💌', style: TextStyle(fontSize: 30)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Von der Pinnwand',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: dark ? null : const Color(0xFFB8456A),
+                      ),
+                    ),
+                    for (final n in pinned)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          n.title.isNotEmpty ? n.title : n.body,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
