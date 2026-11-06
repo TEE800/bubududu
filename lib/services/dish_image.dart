@@ -112,6 +112,25 @@ List<String> dishQueries(String title) {
 /// Weiterleitungen), dann eine Suche, deren Treffer aber zum Namen passen
 /// muss. Nur frei lizenzierte Bilder. Nichts Passendes: null.
 Future<DishImage?> fetchDishImage(http.Client client, String title) async {
+  for (final query in dishQueries(title)) {
+    final hit = await findWikiImage(
+      client,
+      query,
+      matches: (article) => dishMatches(title, article),
+    );
+    if (hit != null) return hit;
+  }
+  return null;
+}
+
+/// Ein frei lizenziertes Bild zum Begriff [query]: zuerst der genaue Artikel
+/// (mit Weiterleitungen), dann eine Suche, deren Treffer [matches] erfüllen
+/// muss. Begriffsklärungen zählen nicht. Nichts Passendes: null.
+Future<DishImage?> findWikiImage(
+  http.Client client,
+  String query, {
+  required bool Function(String article) matches,
+}) async {
   const base = {
     'action': 'query',
     'format': 'json',
@@ -125,18 +144,14 @@ Future<DishImage?> fetchDishImage(http.Client client, String title) async {
     'inprop': 'url',
     'redirects': '1',
   };
-  for (final query in dishQueries(title)) {
-    final exact = await _query(client, {...base, 'titles': query});
-    if (exact != null) return exact;
-    final hit = await _query(client, {
-      ...base,
-      'generator': 'search',
-      'gsrsearch': query,
-      'gsrlimit': '5',
-    }, matches: (article) => dishMatches(title, article));
-    if (hit != null) return hit;
-  }
-  return null;
+  final exact = await _query(client, {...base, 'titles': query});
+  if (exact != null) return exact;
+  return _query(client, {
+    ...base,
+    'generator': 'search',
+    'gsrsearch': query,
+    'gsrlimit': '5',
+  }, matches: matches);
 }
 
 Future<DishImage?> _query(

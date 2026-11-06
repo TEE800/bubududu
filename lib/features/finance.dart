@@ -8,6 +8,7 @@ import '../util/money.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
 import 'contracts.dart';
+import 'trips.dart';
 
 const expenseCategories = [
   'Lebensmittel',
@@ -44,6 +45,7 @@ class Expense {
     required this.split,
     required this.category,
     required this.date,
+    this.tripId,
   });
 
   final String id;
@@ -53,6 +55,9 @@ class Expense {
   final Split split;
   final String category;
   final DateTime date;
+
+  /// Die Reise, zu der die Ausgabe gehört (siehe Reisen & Ausflüge).
+  final String? tripId;
 
   bool get isSettlement => category == settlementCategory;
 
@@ -68,6 +73,7 @@ class Expense {
     split: Split.parse(d.data['split'] as String?),
     category: d.data['category'] as String? ?? 'Sonstiges',
     date: readDate(d.data['date']) ?? today(),
+    tripId: d.data['tripId'] as String?,
   );
 }
 
@@ -348,10 +354,18 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
 }
 
 class ExpenseEditScreen extends ConsumerStatefulWidget {
-  const ExpenseEditScreen({super.key, required this.householdId, this.expense});
+  const ExpenseEditScreen({
+    super.key,
+    required this.householdId,
+    this.expense,
+    this.tripId,
+  });
 
   final String householdId;
   final Expense? expense;
+
+  /// Neue Ausgabe gleich für diese Reise (Kategorie „Reisen“).
+  final String? tripId;
 
   @override
   ConsumerState<ExpenseEditScreen> createState() => _ExpenseEditScreenState();
@@ -366,8 +380,11 @@ class _ExpenseEditScreenState extends ConsumerState<ExpenseEditScreen> {
   );
   late String _paidBy = widget.expense?.paidBy ?? ref.read(uidProvider);
   late Split _split = widget.expense?.split ?? Split.half;
-  late String _category = widget.expense?.category ?? expenseCategories.first;
+  late String _category =
+      widget.expense?.category ??
+      (widget.tripId != null ? 'Reisen' : expenseCategories.first);
   late DateTime _date = widget.expense?.date ?? today();
+  late String? _tripId = widget.expense?.tripId ?? widget.tripId;
 
   @override
   void dispose() {
@@ -393,6 +410,10 @@ class _ExpenseEditScreenState extends ConsumerState<ExpenseEditScreen> {
         'split': _split.name,
         'category': _category,
         'date': writeDate(_date),
+        if (_tripId != null)
+          'tripId': _tripId
+        else if (widget.expense?.tripId != null)
+          'tripId': FieldValue.delete(),
       },
     );
     if (mounted) Navigator.of(context).pop();
@@ -401,6 +422,12 @@ class _ExpenseEditScreenState extends ConsumerState<ExpenseEditScreen> {
   @override
   Widget build(BuildContext context) {
     final e = widget.expense;
+    final trips = [
+      for (final t
+          in ref.watch(tripsProvider(widget.householdId)).value ??
+              const <Trip>[])
+        if (!t.wish) t,
+    ];
     final categories = [
       ...expenseCategories,
       if (e?.isSettlement ?? false) settlementCategory,
@@ -469,6 +496,24 @@ class _ExpenseEditScreenState extends ConsumerState<ExpenseEditScreen> {
           allowClear: false,
           onChanged: (v) => setState(() => _date = v ?? _date),
         ),
+        if (trips.isNotEmpty && (_category == 'Reisen' || _tripId != null))
+          DropdownButtonFormField<String>(
+            initialValue: trips.any((t) => t.id == _tripId) ? _tripId : '',
+            decoration: const InputDecoration(
+              labelText: 'Gehört zur Reise',
+              prefixIcon: Icon(Icons.luggage_outlined),
+            ),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Keine')),
+              for (final t in trips)
+                DropdownMenuItem(
+                  value: t.id,
+                  child: Text(t.name, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (v) =>
+                setState(() => _tripId = (v == null || v.isEmpty) ? null : v),
+          ),
       ],
     );
   }

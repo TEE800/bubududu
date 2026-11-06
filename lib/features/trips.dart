@@ -1,10 +1,19 @@
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/store.dart';
+import '../services/place_image.dart';
+import '../services/weather.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
+import 'trip_detail.dart';
+import 'trip_widgets.dart';
+
+export 'trip_detail.dart' show TripDetailScreen;
 
 const defaultPackingList = [
   'Ausweis',
@@ -25,9 +34,73 @@ const defaultPackingList = [
   'Sonnenbrille',
 ];
 
-typedef PackItem = ({String text, bool done});
+/// Vorlagen für die Packliste: Name → (Symbol, Sachen).
+const packingTemplates = <String, (String, List<String>)>{
+  'Basis': ('🧳', defaultPackingList),
+  'Strand': (
+    '🏖️',
+    [
+      'Badesachen',
+      'Sonnencreme',
+      'Strandtuch',
+      'Sonnenhut',
+      'Flip-Flops',
+      'After-Sun',
+      'Buch',
+    ],
+  ),
+  'Städtetrip': (
+    '🏙️',
+    [
+      'Bequeme Schuhe',
+      'Powerbank',
+      'Tickets & Reservierungen',
+      'Regenschirm',
+      'Tagesrucksack',
+      'Kamera',
+    ],
+  ),
+  'Wandern': (
+    '🥾',
+    [
+      'Wanderschuhe',
+      'Regenjacke',
+      'Trinkflasche',
+      'Snacks',
+      'Blasenpflaster',
+      'Rucksack',
+      'Taschenmesser',
+    ],
+  ),
+  'Winter': (
+    '❄️',
+    [
+      'Winterjacke',
+      'Mütze',
+      'Schal',
+      'Handschuhe',
+      'Thermounterwäsche',
+      'Lippenpflege',
+      'Warme Socken',
+    ],
+  ),
+  'Flug': (
+    '✈️',
+    [
+      'Reisepass',
+      'Bordkarten',
+      'Nackenkissen',
+      'Beutel für Flüssigkeiten',
+      'Reiseadapter',
+    ],
+  ),
+};
 
-/// households/{id}/trips: Reisen und Ausflüge mit Packliste.
+/// Ein Teil der Packliste. [who] ist die uid der Person, die es einpackt,
+/// leer heißt: für beide bzw. gemeinsam.
+typedef PackItem = ({String text, bool done, String who});
+
+/// households/{id}/trips: Reisen, Ausflüge und Wunschziele.
 class Trip {
   const Trip({
     required this.id,
@@ -36,6 +109,15 @@ class Trip {
     required this.end,
     required this.packing,
     required this.notes,
+    this.place,
+    this.imageUrl,
+    this.imagePage,
+    this.wish = false,
+    this.travel = '',
+    this.stay = '',
+    this.rating = 0,
+    this.memory = '',
+    this.createdBy = '',
   });
 
   final String id;
@@ -43,7 +125,33 @@ class Trip {
   final DateTime? start;
   final DateTime? end;
   final List<PackItem> packing;
+
+  /// Ideen vor Ort und sonstige Notizen.
   final String notes;
+
+  /// Der Ort für Wetter und Karte, aus der Ortssuche.
+  final Place? place;
+
+  /// Automatisch gefundenes Foto des Reiseziels. null: noch nicht gesucht,
+  /// leer: nichts gefunden.
+  final String? imageUrl;
+  final String? imagePage;
+
+  /// Nur ein Wunschziel, noch nicht geplant.
+  final bool wish;
+
+  /// Anreise (Zug, Flug, Zeiten, Plätze …).
+  final String travel;
+
+  /// Unterkunft (Name, Adresse, Check-in …).
+  final String stay;
+
+  /// Sterne nach der Reise (0 = noch keine).
+  final int rating;
+
+  /// Lieblingsmoment, nach der Reise.
+  final String memory;
+  final String createdBy;
 
   factory Trip.fromDoc(Doc d) => Trip(
     id: d.id,
@@ -53,15 +161,46 @@ class Trip {
     packing: [
       for (final p in (d.data['packing'] as List? ?? const []))
         if (p is Map)
-          (text: p['text'] as String? ?? '', done: p['done'] as bool? ?? false),
+          (
+            text: p['text'] as String? ?? '',
+            done: p['done'] as bool? ?? false,
+            who: p['who'] as String? ?? '',
+          ),
     ],
     notes: d.data['notes'] as String? ?? '',
+    place: Place.fromMap(d.data['place']),
+    imageUrl: d.data['imageUrl'] as String?,
+    imagePage: d.data['imagePage'] as String?,
+    wish: d.data['wish'] as bool? ?? false,
+    travel: d.data['travel'] as String? ?? '',
+    stay: d.data['stay'] as String? ?? '',
+    rating: (d.data['rating'] as num?)?.toInt() ?? 0,
+    memory: d.data['memory'] as String? ?? '',
+    createdBy: d.data['createdBy'] as String? ?? '',
   );
 }
 
 List<Map<String, Object>> packingToData(List<PackItem> items) => [
-  for (final p in items) {'text': p.text, 'done': p.done},
+  for (final p in items) {'text': p.text, 'done': p.done, 'who': p.who},
 ];
+
+/// Hängt die Sachen einer Vorlage an, ohne doppelte (Groß/klein egal).
+List<PackItem> addTemplate(List<PackItem> items, List<String> template) {
+  final have = {for (final p in items) p.text.trim().toLowerCase()};
+  return [
+    ...items,
+    for (final t in template)
+      if (have.add(t.toLowerCase())) (text: t, done: false, who: ''),
+  ];
+}
+
+/// Nächste Person für ein Teil der Packliste: beide → erste → zweite → beide.
+String nextPacker(String who, List<String> members) {
+  if (members.isEmpty) return '';
+  final i = members.indexOf(who);
+  if (who.isEmpty) return members.first;
+  return i >= 0 && i + 1 < members.length ? members[i + 1] : '';
+}
 
 final tripsProvider = Provider.family<AsyncValue<List<Trip>>, String>(
   (ref, householdId) => ref
@@ -73,7 +212,33 @@ final tripsProvider = Provider.family<AsyncValue<List<Trip>>, String>(
 
 /// Vorbei, wenn das Ende (oder ohne Ende der Anfang) vor [today] liegt.
 bool tripIsPast(Trip t, DateTime today) =>
-    (t.end ?? t.start)?.isBefore(dateOnly(today)) ?? false;
+    !t.wish && ((t.end ?? t.start)?.isBefore(dateOnly(today)) ?? false);
+
+/// Läuft gerade (heute zwischen Anfang und Ende).
+bool tripIsRunning(Trip t, DateTime today) {
+  if (t.wish || t.start == null) return false;
+  final d = dateOnly(today);
+  return !d.isBefore(dateOnly(t.start!)) &&
+      !d.isAfter(dateOnly(t.end ?? t.start!));
+}
+
+/// "noch 12 Tage", "morgen geht's los", "Tag 2 von 4" – oder null, wenn die
+/// Reise kein Datum hat, vorbei oder nur ein Wunschziel ist.
+String? tripCountdown(Trip t, DateTime today) {
+  if (t.wish || t.start == null || tripIsPast(t, today)) return null;
+  final start = dateOnly(t.start!);
+  final end = dateOnly(t.end ?? t.start!);
+  if (tripIsRunning(t, today)) {
+    final total = daysBetween(start, end) + 1;
+    if (total == 1) return 'heute';
+    return 'Tag ${daysBetween(start, today) + 1} von $total';
+  }
+  final days = daysBetween(today, start);
+  if (days == 1) return 'morgen geht’s los';
+  if (days < 60) return 'noch ${daysText(days)}';
+  final months = (days / 30.4).round();
+  return 'noch $months Monate';
+}
 
 /// Kommende und laufende Reisen nach Datum, dann ohne Datum,
 /// vergangene ganz unten (die letzte zuerst).
@@ -101,6 +266,41 @@ String tripDates(Trip t) {
   return t.end == null ? s : '$s – ${formatShortDate(t.end!)}';
 }
 
+/// Die Reisen, wie die Übersicht sie zeigt.
+typedef TripGroups = ({
+  Trip? next,
+  List<Trip> planned,
+  List<Trip> wishes,
+  List<Trip> past,
+});
+
+/// Die nächste Reise mit Datum groß oben, dann die übrigen geplanten,
+/// die Wunschziele und die vergangenen Reisen als Erinnerungen.
+TripGroups groupTrips(List<Trip> sorted, DateTime today) {
+  final wishes = [
+    for (final t in sorted)
+      if (t.wish) t,
+  ];
+  final past = [
+    for (final t in sorted)
+      if (tripIsPast(t, today)) t,
+  ];
+  final planned = [
+    for (final t in sorted)
+      if (!t.wish && !tripIsPast(t, today)) t,
+  ];
+  final next = planned.where((t) => t.start != null).firstOrNull;
+  return (
+    next: next,
+    planned: [
+      for (final t in planned)
+        if (t != next) t,
+    ],
+    wishes: wishes,
+    past: past,
+  );
+}
+
 class TripsScreen extends ConsumerWidget {
   const TripsScreen({super.key, required this.householdId});
 
@@ -109,6 +309,13 @@ class TripsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trips = ref.watch(tripsProvider(householdId));
+    final names = memberNames(ref, householdId);
+    void open(Trip trip) => Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            TripDetailScreen(householdId: householdId, tripId: trip.id),
+      ),
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('Reisen & Ausflüge')),
       floatingActionButton: FloatingActionButton.extended(
@@ -125,40 +332,54 @@ class TripsScreen extends ConsumerWidget {
           return const EmptyHint(
             icon: Icons.luggage_outlined,
             mood: MascotMood.travel,
-            text: 'Plant hier Urlaube und Ausflüge, inklusive gemeinsamer Packliste.',
+            text:
+                'Plant hier Urlaube und Ausflüge mit gemeinsamer Packliste, '
+                'oder sammelt Orte, an die ihr mal wollt.',
           );
         }
         final t = today();
-        return ListView(
-          padding: const EdgeInsets.only(bottom: 88),
+        final g = groupTrips(list, t);
+        Widget grid(List<Trip> trips) => _TileGrid(
           children: [
-            for (final trip in list)
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: const Icon(Icons.luggage_outlined),
-                  title: Text(trip.name),
-                  subtitle: Text(
-                    [
-                      tripDates(trip),
-                      if (tripIsPast(trip, t)) 'vorbei',
-                      if (trip.start != null && trip.start!.isAfter(t))
-                        dueText(trip.start!),
-                      if (trip.packing.isNotEmpty)
-                        '${trip.packing.where((p) => p.done).length}/${trip.packing.length} gepackt',
-                    ].join(' · '),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => TripDetailScreen(
-                        householdId: householdId,
-                        tripId: trip.id,
-                      ),
-                    ),
-                  ),
+            for (final trip in trips)
+              TripTile(
+                householdId: householdId,
+                trip: trip,
+                today: t,
+                names: names,
+                onTap: () => open(trip),
+              ),
+          ],
+        );
+        return ListView(
+          padding: const EdgeInsets.only(bottom: 96),
+          children: [
+            if (g.next != null) ...[
+              const SectionHeader('Als Nächstes'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: TripTile(
+                  householdId: householdId,
+                  trip: g.next!,
+                  today: t,
+                  names: names,
+                  big: true,
+                  onTap: () => open(g.next!),
                 ),
               ),
+            ],
+            if (g.planned.isNotEmpty) ...[
+              SectionHeader(g.next == null ? 'Geplant' : 'Danach'),
+              grid(g.planned),
+            ],
+            if (g.wishes.isNotEmpty) ...[
+              const SectionHeader('Wunschziele'),
+              grid(g.wishes),
+            ],
+            if (g.past.isNotEmpty) ...[
+              const SectionHeader('Erinnerungen'),
+              grid(g.past),
+            ],
           ],
         );
       }),
@@ -166,141 +387,133 @@ class TripsScreen extends ConsumerWidget {
   }
 }
 
-class TripDetailScreen extends ConsumerStatefulWidget {
-  const TripDetailScreen({
-    super.key,
-    required this.householdId,
-    required this.tripId,
-  });
+/// Zwei Kacheln pro Zeile, gleich hoch.
+class _TileGrid extends StatelessWidget {
+  const _TileGrid({required this.children});
 
-  final String householdId;
-  final String tripId;
-
-  @override
-  ConsumerState<TripDetailScreen> createState() => _TripDetailScreenState();
-}
-
-class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
-  final _newItem = TextEditingController();
-
-  @override
-  void dispose() {
-    _newItem.dispose();
-    super.dispose();
-  }
-
-  Future<void> _setPacking(List<PackItem> items) => ref
-      .read(storeProvider(widget.householdId))
-      .update('trips', widget.tripId, {'packing': packingToData(items)});
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final trips = ref.watch(tripsProvider(widget.householdId));
-    final trip = trips.value?.where((t) => t.id == widget.tripId).firstOrNull;
-    if (trip == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: Center(
-          child: trips.isLoading
-              ? const CircularProgressIndicator()
-              : const Text('Diese Reise gibt es nicht mehr.'),
-        ),
-      );
-    }
-    final packing = trip.packing;
-
-    void add() {
-      final text = _newItem.text.trim();
-      if (text.isEmpty) return;
-      _setPacking([...packing, (text: text, done: false)]);
-      _newItem.clear();
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(trip.name),
-        actions: [
-          IconButton(
-            tooltip: 'Bearbeiten',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    TripEditScreen(householdId: widget.householdId, trip: trip),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
-        children: [
-          ListTile(
-            leading: const Icon(Icons.date_range),
-            title: Text(tripDates(trip)),
-          ),
-          if (trip.notes.isNotEmpty)
-            ListTile(leading: const Icon(Icons.notes), title: Text(trip.notes)),
-          const SectionHeader('Packliste'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _newItem,
-              decoration: InputDecoration(
-                hintText: 'Was muss mit?',
-                suffixIcon: IconButton(
-                  tooltip: 'Hinzufügen',
-                  icon: const Icon(Icons.add),
-                  onPressed: add,
-                ),
-              ),
-              textCapitalization: TextCapitalization.sentences,
-              onSubmitted: (_) => add(),
-            ),
-          ),
-          if (packing.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.playlist_add),
-                label: const Text('Standard-Packliste übernehmen'),
-                onPressed: () => _setPacking([
-                  for (final t in defaultPackingList) (text: t, done: false),
-                ]),
-              ),
-            ),
-          for (var i = 0; i < packing.length; i++)
-            CheckboxListTile(
-              value: packing[i].done,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: Text(
-                packing[i].text,
-                style: packing[i].done
-                    ? const TextStyle(decoration: TextDecoration.lineThrough)
-                    : null,
-              ),
-              secondary: IconButton(
-                tooltip: 'Löschen',
-                icon: const Icon(Icons.close),
-                onPressed: () => _setPacking([...packing]..removeAt(i)),
-              ),
-              onChanged: (v) {
-                final copy = [...packing];
-                copy[i] = (text: packing[i].text, done: v ?? false);
-                _setPacking(copy);
-              },
-            ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: GridView.count(
+        crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 4 : 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.82,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        children: children,
       ),
     );
   }
 }
 
+/// Wählt einen Ort per Suche (für Wetter, Karte und Foto).
+class PlaceField extends ConsumerStatefulWidget {
+  const PlaceField({super.key, required this.value, required this.onChanged});
+
+  final Place? value;
+  final ValueChanged<Place?> onChanged;
+
+  @override
+  ConsumerState<PlaceField> createState() => _PlaceFieldState();
+}
+
+class _PlaceFieldState extends ConsumerState<PlaceField> {
+  final _query = TextEditingController();
+  List<Place> _results = const [];
+  bool _searching = false;
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final q = _query.text.trim();
+    if (q.isEmpty) return;
+    setState(() => _searching = true);
+    final result = await searchPlaces(
+      ref.read(httpClientProvider),
+      q,
+    ).catchError((_) => <Place>[]);
+    if (!mounted) return;
+    setState(() {
+      _results = result;
+      _searching = false;
+    });
+    if (result.isEmpty) showError(context, 'Keinen Ort gefunden.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final place = widget.value;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (place != null)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.place_outlined),
+            title: Text(place.name),
+            subtitle: const Text('Für Wetter, Karte und Foto'),
+            trailing: IconButton(
+              tooltip: 'Ort entfernen',
+              icon: const Icon(Icons.close),
+              onPressed: () => widget.onChanged(null),
+            ),
+          ),
+        TextField(
+          controller: _query,
+          decoration: InputDecoration(
+            labelText: place == null ? 'Ort (optional)' : 'Anderer Ort',
+            hintText: 'z. B. Sylt',
+            helperText: place == null
+                ? 'Dann gibt es Wetter und Karte zur Reise'
+                : null,
+            suffixIcon: IconButton(
+              tooltip: 'Ort suchen',
+              icon: const Icon(Icons.search),
+              onPressed: _search,
+            ),
+          ),
+          onSubmitted: (_) => _search(),
+        ),
+        if (_searching) const LinearProgressIndicator(),
+        for (final p in _results)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.place_outlined),
+            title: Text(p.name),
+            onTap: () {
+              widget.onChanged(p);
+              setState(() {
+                _results = const [];
+                _query.clear();
+              });
+            },
+          ),
+      ],
+    );
+  }
+}
+
 class TripEditScreen extends ConsumerStatefulWidget {
-  const TripEditScreen({super.key, required this.householdId, this.trip});
+  const TripEditScreen({
+    super.key,
+    required this.householdId,
+    this.trip,
+    this.wish,
+  });
 
   final String householdId;
   final Trip? trip;
+
+  /// Vorgabe für „Nur ein Wunschziel“ (sonst wie bei [trip]).
+  final bool? wish;
 
   @override
   ConsumerState<TripEditScreen> createState() => _TripEditScreenState();
@@ -309,41 +522,85 @@ class TripEditScreen extends ConsumerStatefulWidget {
 class _TripEditScreenState extends ConsumerState<TripEditScreen> {
   late final _name = TextEditingController(text: widget.trip?.name);
   late final _notes = TextEditingController(text: widget.trip?.notes);
+  late final _travel = TextEditingController(text: widget.trip?.travel);
+  late final _stay = TextEditingController(text: widget.trip?.stay);
   late DateTime? _start = widget.trip?.start;
   late DateTime? _end = widget.trip?.end;
+  late Place? _place = widget.trip?.place;
+  late bool _wish = widget.wish ?? widget.trip?.wish ?? false;
 
   @override
   void dispose() {
     _name.dispose();
     _notes.dispose();
+    _travel.dispose();
+    _stay.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) return showError(context, 'Wohin geht es?');
-    if (_start != null && _end != null && _end!.isBefore(_start!)) {
+    if (!_wish && _start != null && _end != null && _end!.isBefore(_start!)) {
       return showError(context, 'Das Ende liegt vor dem Anfang.');
     }
-    await ref.read(storeProvider(widget.householdId)).save(
-      'trips',
-      widget.trip?.id,
-      {
-        'name': name,
-        'start': writeDate(_start),
-        'end': writeDate(_end),
-        'notes': _notes.text.trim(),
-        if (widget.trip == null) 'packing': <Object>[],
-      },
-    );
+    final old = widget.trip;
+    final store = ref.read(storeProvider(widget.householdId));
+    final placeChanged =
+        jsonEncode(old?.place?.toMap()) != jsonEncode(_place?.toMap());
+    final data = <String, dynamic>{
+      'name': name,
+      'wish': _wish,
+      'start': _wish ? null : writeDate(_start),
+      'end': _wish ? null : writeDate(_end),
+      'notes': _notes.text.trim(),
+      'travel': _travel.text.trim(),
+      'stay': _stay.text.trim(),
+    };
+    if (old == null) {
+      final id = store.newId('trips');
+      await store.add('trips', {
+        ...data,
+        if (_place != null) 'place': _place!.toMap(),
+        'packing': <Object>[],
+      }, id: id);
+      if (_place == null) _guessPlace(store, id, name);
+    } else {
+      await store.update('trips', old.id, {
+        ...data,
+        'place': _place?.toMap() ?? FieldValue.delete(),
+        // Anderes Ziel: das Foto neu suchen.
+        if (name != old.name || placeChanged) ...{
+          'imageUrl': FieldValue.delete(),
+          'imagePage': FieldValue.delete(),
+        },
+      });
+    }
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Ohne gewählten Ort: den Ort aus dem Namen erraten (für Wetter und
+  /// Karte), im Hintergrund. Klappt es nicht, bleibt die Reise ohne Ort.
+  void _guessPlace(HouseholdStore store, String id, String name) {
+    final client = ref.read(httpClientProvider);
+    final query = placeQueries(name).firstOrNull;
+    if (query == null) return;
+    searchPlaces(client, query)
+        .then((places) async {
+          final p = places.firstOrNull;
+          if (p == null) return;
+          await store.update('trips', id, {'place': p.toMap()});
+        })
+        .catchError((_) {});
   }
 
   @override
   Widget build(BuildContext context) {
     final t = widget.trip;
     return EditScaffold(
-      title: t == null ? 'Neue Reise' : 'Reise bearbeiten',
+      title: t == null
+          ? (_wish ? 'Neues Wunschziel' : 'Neue Reise')
+          : (_wish ? 'Wunschziel bearbeiten' : 'Reise bearbeiten'),
       onSave: _save,
       onDelete: t == null
           ? null
@@ -355,9 +612,10 @@ class _TripEditScreenState extends ConsumerState<TripEditScreen> {
               Navigator.of(context)
                 ..pop()
                 ..pop();
-              await ref
-                  .read(storeProvider(widget.householdId))
-                  .delete('trips', t.id);
+              final store = ref.read(storeProvider(widget.householdId));
+              await store.delete('trips', t.id);
+              await store.delete('tripPhotos', t.id);
+              await deleteTripFiles(store, t.id);
             },
       children: [
         TextField(
@@ -369,21 +627,52 @@ class _TripEditScreenState extends ConsumerState<TripEditScreen> {
           ),
           textCapitalization: TextCapitalization.sentences,
         ),
-        DateField(
-          label: 'Von',
-          value: _start,
-          onChanged: (v) => setState(() => _start = v),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.auto_awesome_outlined),
+          title: const Text('Nur ein Wunschziel'),
+          subtitle: const Text('Da wollt ihr mal hin, geplant ist noch nichts'),
+          value: _wish,
+          onChanged: (v) => setState(() => _wish = v),
         ),
-        DateField(
-          label: 'Bis',
-          value: _end,
-          onChanged: (v) => setState(() => _end = v),
-        ),
+        PlaceField(value: _place, onChanged: (p) => setState(() => _place = p)),
+        if (!_wish) ...[
+          DateField(
+            label: 'Von',
+            value: _start,
+            onChanged: (v) => setState(() => _start = v),
+          ),
+          DateField(
+            label: 'Bis',
+            value: _end,
+            onChanged: (v) => setState(() => _end = v),
+          ),
+          TextField(
+            controller: _travel,
+            decoration: const InputDecoration(
+              labelText: 'Anreise (optional)',
+              hintText: 'z. B. ICE 2214 um 9:12, Platz 54 + 55',
+              prefixIcon: Icon(Icons.train_outlined),
+            ),
+            maxLines: null,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          TextField(
+            controller: _stay,
+            decoration: const InputDecoration(
+              labelText: 'Unterkunft (optional)',
+              hintText: 'Name, Adresse, Check-in …',
+              prefixIcon: Icon(Icons.hotel_outlined),
+            ),
+            maxLines: null,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+        ],
         TextField(
           controller: _notes,
           decoration: const InputDecoration(
-            labelText: 'Notizen (optional)',
-            hintText: 'Unterkunft, Zugzeiten, Ideen …',
+            labelText: 'Ideen & Notizen (optional)',
+            hintText: 'Was wollt ihr dort machen, essen, sehen?',
           ),
           maxLines: null,
           textCapitalization: TextCapitalization.sentences,
