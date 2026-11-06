@@ -133,6 +133,10 @@ void main() {
           onOpenPage: (_) {},
         ),
       );
+      // Je nach Datum ist die Aktionstage-Karte höher, dann liegt das Wetter
+      // weiter unten.
+      await tester.ensureVisible(find.text('Wetter in Leipzig'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Wetter in Leipzig'));
       await tester.pumpAndSettle();
       expect(find.byType(WeatherScreen), findsOneWidget);
