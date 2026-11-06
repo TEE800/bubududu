@@ -427,8 +427,8 @@ void main() {
     testWidgets('zeigt Gewinn je Position in Euro und Prozent', (tester) async {
       await h.pumpPage(tester, const DepotScreen());
       // SAP: 440 € Wert, 300 € bezahlt
-      expect(find.text('+140,00 € · +46,67 %'), findsOneWidget);
-      expect(find.text('+0,00 € · +0,00 %'), findsOneWidget);
+      expect(find.textContaining('+140,00 € · +46,67 %'), findsOneWidget);
+      expect(find.textContaining('+0,00 € · +0,00 %'), findsOneWidget);
       expect(find.textContaining('heute +10,00 %'), findsOneWidget);
       expect(find.textContaining('kein Kürzel gefunden'), findsOneWidget);
     });

@@ -10,6 +10,7 @@ import '../data/providers.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
 import '../widgets/item_icon.dart';
 import '../widgets/mascots.dart';
 import 'pantry_auto_shop.dart';
@@ -496,9 +497,9 @@ class PantryScreen extends ConsumerWidget {
                 sliver: SliverGrid.builder(
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 200,
-                    mainAxisExtent: 262 + extraHeight,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
+                    mainAxisExtent: 268 + extraHeight,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
                   ),
                   itemCount: roomItems.length,
                   itemBuilder: (context, n) => _tile(
@@ -530,149 +531,149 @@ class PantryScreen extends ConsumerWidget {
     final level = i.levelAt(now);
     final emptyOn = i.emptyOn(now);
     final warn = level == StockLevel.full ? scheme.primary : scheme.error;
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _open(context, i),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ItemPicture(
-                    householdId: householdId,
-                    name: i.name,
-                    editable: false,
-                  ),
-                  if (level != StockLevel.full)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.errorContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              level == StockLevel.low
-                                  ? Icons.hourglass_bottom
-                                  : Icons.remove_circle_outline,
-                              color: scheme.onErrorContainer,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              level.label,
-                              style: theme.textTheme.labelSmall?.copyWith(
+    return CuteBox(
+      radius: 26,
+      onTap: () => _open(context, i),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(21),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ItemPicture(
+                      householdId: householdId,
+                      name: i.name,
+                      editable: false,
+                    ),
+                    if (level != StockLevel.full)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.errorContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                level == StockLevel.low
+                                    ? Icons.hourglass_bottom
+                                    : Icons.remove_circle_outline,
                                 color: scheme.onErrorContainer,
+                                size: 14,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 4, 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    i.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  Text(
-                    [
-                      if (i.countsUses)
-                        usesText(i.remaining(now), i.uses!)
-                      // Knapp und leer stehen schon groß auf dem Bild.
-                      else if (level == StockLevel.full)
-                        level.label,
-                      if (i.autoUses)
-                        emptyOn == null
-                            ? 'automatisch'
-                            : 'reicht bis ca. ${formatShortDate(emptyOn)}',
-                      if (showPlace && i.place.isNotEmpty) i.place,
-                      if (i.bestBefore != null)
-                        'MHD ${formatShortDate(i.bestBefore!)}',
-                    ].join(' · '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: i.expiresSoon(now) ? scheme.error : null,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: LinearProgressIndicator(
-                      value: i.fractionLeft(now),
-                      color: warn,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      if (i.countsUses)
-                        IconButton.filledTonal(
-                          tooltip: 'Einmal benutzt',
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.remove),
-                          onPressed: i.remaining(now) == 0
-                              ? null
-                              : () => _useOnce(context, store, i),
-                        ),
-                      const Spacer(),
-                      if (i.countsUses)
-                        PopupMenuButton<void>(
-                          tooltip: 'Bestand ändern',
-                          icon: const Icon(Icons.tune),
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              onTap: () => store.update(
-                                'pantry',
-                                i.id,
-                                i.usesUpdate(
-                                  i.uses!.toDouble(),
-                                  DateTime.now(),
+                              const SizedBox(width: 3),
+                              Text(
+                                level.label,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onErrorContainer,
                                 ),
                               ),
-                              child: Text('Wieder voll (${i.uses})'),
-                            ),
-                          ],
-                        )
-                      else
-                        PopupMenuButton<StockLevel>(
-                          tooltip: 'Bestand ändern',
-                          icon: const Icon(Icons.tune),
-                          onSelected: (l) =>
-                              store.update('pantry', i.id, {'level': l.name}),
-                          itemBuilder: (_) => [
-                            for (final l in StockLevel.values)
-                              PopupMenuItem(value: l, child: Text(l.label)),
-                          ],
+                            ],
+                          ),
                         ),
-                    ],
-                  ),
-                ],
+                      ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  i.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
+                Text(
+                  [
+                    if (i.countsUses)
+                      usesText(i.remaining(now), i.uses!)
+                    // Knapp und leer stehen schon groß auf dem Bild.
+                    else if (level == StockLevel.full)
+                      level.label,
+                    if (i.autoUses)
+                      emptyOn == null
+                          ? 'automatisch'
+                          : 'reicht bis ca. ${formatShortDate(emptyOn)}',
+                    if (showPlace && i.place.isNotEmpty) i.place,
+                    if (i.bestBefore != null)
+                      'MHD ${formatShortDate(i.bestBefore!)}',
+                  ].join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: i.expiresSoon(now) ? scheme.error : null,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: LinearProgressIndicator(
+                    value: i.fractionLeft(now),
+                    color: warn,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Row(
+                  children: [
+                    if (i.countsUses)
+                      IconButton.filledTonal(
+                        tooltip: 'Einmal benutzt',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.remove),
+                        onPressed: i.remaining(now) == 0
+                            ? null
+                            : () => _useOnce(context, store, i),
+                      ),
+                    const Spacer(),
+                    if (i.countsUses)
+                      PopupMenuButton<void>(
+                        tooltip: 'Bestand ändern',
+                        icon: const Icon(Icons.tune),
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            onTap: () => store.update(
+                              'pantry',
+                              i.id,
+                              i.usesUpdate(i.uses!.toDouble(), DateTime.now()),
+                            ),
+                            child: Text('Wieder voll (${i.uses})'),
+                          ),
+                        ],
+                      )
+                    else
+                      PopupMenuButton<StockLevel>(
+                        tooltip: 'Bestand ändern',
+                        icon: const Icon(Icons.tune),
+                        onSelected: (l) =>
+                            store.update('pantry', i.id, {'level': l.name}),
+                        itemBuilder: (_) => [
+                          for (final l in StockLevel.values)
+                            PopupMenuItem(value: l, child: Text(l.label)),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/store.dart';
 import '../util/dates.dart';
+import '../util/symbols.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 
 /// "Zusammen seit" steht im Haushalts-Dokument (togetherSince).
@@ -218,27 +221,43 @@ class _IdeasScreenState extends ConsumerState<IdeasScreen> {
                 );
               }
               return ListView(
+                padding: const EdgeInsets.only(bottom: 24),
                 children: [
-                  for (final i in list)
-                    CheckboxListTile(
-                      value: i.done,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        i.text,
-                        style: i.done
-                            ? const TextStyle(
-                                decoration: TextDecoration.lineThrough,
-                              )
-                            : null,
-                      ),
-                      secondary: IconButton(
-                        tooltip: 'Löschen',
-                        icon: const Icon(Icons.close),
-                        onPressed: () => store.delete('ideas', i.id),
-                      ),
-                      onChanged: (v) =>
-                          store.update('ideas', i.id, {'done': v ?? false}),
-                    ),
+                  PicGrid(
+                    tileHeight: 190,
+                    children: [
+                      for (final i in list)
+                        PicTile(
+                          title: i.text,
+                          titleLines: 3,
+                          emoji: symbolFor(
+                            i.text,
+                            ideaSymbols,
+                            switch (widget.kind) {
+                              IdeaKind.date => '💞',
+                              IdeaKind.bucket => '⭐',
+                              IdeaKind.goal => '🏁',
+                            },
+                          ),
+                          tone: CuteTone.pink,
+                          done: i.done,
+                          corner: TileButton(
+                            tooltip: i.done ? 'Wieder offen' : 'Abhaken',
+                            icon: Icons.check,
+                            active: i.done,
+                            onPressed: () =>
+                                store.update('ideas', i.id, {'done': !i.done}),
+                          ),
+                          cornerRight: TileButton(
+                            tooltip: 'Löschen',
+                            icon: Icons.close,
+                            onPressed: () => store.delete('ideas', i.id),
+                          ),
+                          onTap: () =>
+                              store.update('ideas', i.id, {'done': !i.done}),
+                        ),
+                    ],
+                  ),
                 ],
               );
             }),

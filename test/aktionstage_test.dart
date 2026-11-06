@@ -114,8 +114,7 @@ void main() {
     test('jeden Tag ein witziger Tag', () {
       var day = DateTime(2028, 1, 1);
       while (day.year == 2028) {
-        expect(aktionstageAm(day).any((t) => t.witzig), isTrue,
-            reason: '$day');
+        expect(aktionstageAm(day).any((t) => t.witzig), isTrue, reason: '$day');
         day = addDays(day, 1);
       }
     });
@@ -131,8 +130,7 @@ void main() {
       expect(shown.last.$1, DateTime(2026, 11, 6));
       // 31.10.: beides heute.
       expect(
-        aktionstageFuerStartseite(DateTime(2026, 10, 31))
-            .map((e) => e.$2.name),
+        aktionstageFuerStartseite(DateTime(2026, 10, 31)).map((e) => e.$2.name),
         ['Reformationstag', 'Weltspartag', 'Halloween'],
       );
     });

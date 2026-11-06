@@ -9,6 +9,7 @@ import '../features/receipt_import.dart';
 import '../widgets/common.dart';
 import '../widgets/item_icon.dart';
 import '../widgets/mascots.dart';
+import '../widgets/pic_tile.dart';
 
 class ShoppingScreen extends ConsumerStatefulWidget {
   const ShoppingScreen({super.key, required this.householdId});
@@ -76,6 +77,23 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
         const SnackBar(content: Text('Rewe ließ sich nicht öffnen.')),
       );
     }
+  }
+
+  /// Fotoauswahl für einen Eintrag, mit dem aktuellen Stand von Foto und
+  /// automatischem Bild.
+  Future<void> _photo(String name) async {
+    final key = (householdId: widget.householdId, name: name);
+    final photo = await ref.read(itemPhotoProvider(key).future);
+    final auto = await ref.read(itemImageProvider(key).future);
+    if (!mounted) return;
+    await showItemPhotoSheet(
+      context,
+      ref,
+      householdId: widget.householdId,
+      name: name,
+      hasPhoto: photo != null,
+      autoImage: auto,
+    );
   }
 
   @override
@@ -158,74 +176,45 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                   ...list.where((i) => !i.done),
                   ...list.where((i) => i.done),
                 ];
-                return ListView.builder(
+                void toggle(ShoppingItem item) => repo.setShoppingItemDone(
+                  widget.householdId,
+                  item.id,
+                  !item.done,
+                );
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                  gridDelegate: picGridDelegate(context, tileHeight: 196),
                   itemCount: sorted.length,
                   itemBuilder: (context, index) {
                     final item = sorted[index];
-                    return Dismissible(
+                    return PicTile(
                       key: ValueKey(item.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: const Icon(Icons.delete),
+                      title: item.text,
+                      picture: ItemPicture(
+                        householdId: widget.householdId,
+                        name: item.text,
+                        editable: false,
                       ),
-                      onDismissed: (_) => _delete(item),
-                      child: CheckboxListTile(
-                        value: item.done,
-                        onChanged: (v) => repo.setShoppingItemDone(
-                          widget.householdId,
-                          item.id,
-                          v ?? false,
-                        ),
-                        title: Row(
-                          children: [
-                            Opacity(
-                              opacity: item.done ? 0.5 : 1,
-                              child: ItemAvatar(
-                                householdId: widget.householdId,
-                                name: item.text,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.text,
-                                    style: item.done
-                                        ? const TextStyle(
-                                            decoration:
-                                                TextDecoration.lineThrough,
-                                          )
-                                        : null,
-                                  ),
-                                  if (household != null || item.pending)
-                                    Text(
-                                      [
-                                        if (household != null)
-                                          'von ${household.memberNames[item.addedBy] ?? '?'}',
-                                        if (item.pending)
-                                          'noch nicht abgeglichen',
-                                      ].join(' · '),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        secondary: IconButton(
-                          tooltip: 'Löschen',
-                          icon: const Icon(Icons.close),
-                          onPressed: () => _delete(item),
-                        ),
+                      done: item.done,
+                      subtitle: [
+                        if (household != null)
+                          'von ${household.memberNames[item.addedBy] ?? '?'}',
+                        if (item.pending) 'noch nicht abgeglichen',
+                      ].join(' · '),
+                      corner: TileButton(
+                        tooltip: item.done ? 'Wieder offen' : 'Abhaken',
+                        icon: Icons.check,
+                        active: item.done,
+                        onPressed: () => toggle(item),
                       ),
+                      cornerRight: TileButton(
+                        tooltip: 'Löschen',
+                        icon: Icons.close,
+                        onPressed: () => _delete(item),
+                      ),
+                      onTap: () => toggle(item),
+                      // Lange drücken: eigenes Produktfoto wählen.
+                      onLongPress: () => _photo(item.text),
                     );
                   },
                 );

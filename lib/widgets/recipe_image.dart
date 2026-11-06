@@ -240,7 +240,9 @@ class DishPlaceholder extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'Bild wird gesucht …',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
                   ),
                 ],
               ],

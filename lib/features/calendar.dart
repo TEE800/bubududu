@@ -5,7 +5,10 @@ import '../data/store.dart';
 import '../gcal/calendar_sync.dart';
 import '../gcal/calendar_sync_widgets.dart';
 import '../util/dates.dart';
+import '../util/symbols.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 
 /// households/{id}/events: Termine, Geburtstage, Jahrestage.
 class CalendarEvent {
@@ -115,6 +118,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget build(BuildContext context) {
     final events = ref.watch(eventsProvider(widget.householdId));
     final names = memberNames(ref, widget.householdId);
+    final uid = ref.watch(uidProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -195,24 +199,33 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       : 'An diesem Tag steht nichts an.',
                 ),
               ),
-            for (final o in shown)
-              ListTile(
-                leading: CircleAvatar(
-                  child: Icon(
-                    o.event.yearly ? Icons.cake_outlined : Icons.event,
-                  ),
-                ),
-                title: Text(o.event.title),
-                subtitle: Text(
-                  [
-                    if (_selected == null) relativeDay(o.day),
-                    o.event.time ?? 'ganztägig',
-                    o.event.who.isEmpty ? 'Beide' : names[o.event.who] ?? '?',
-                    if (o.event.yearly && o.day.year != o.event.date.year)
-                      '${o.day.year - o.event.date.year}. Mal',
-                  ].join(' · '),
-                ),
-                onTap: () => _openEdit(context, o.event, null),
+            if (shown.isNotEmpty)
+              PicGrid(
+                tileHeight: 196,
+                children: [
+                  for (final o in shown)
+                    PicTile(
+                      title: o.event.title,
+                      emoji: symbolFor(
+                        o.event.title,
+                        eventSymbols,
+                        o.event.yearly ? '🎉' : '📅',
+                      ),
+                      tone: toneForAssignee(o.event.who, uid),
+                      badge: _selected == null
+                          ? relativeDay(o.day)
+                          : (o.event.time ?? 'ganztägig'),
+                      subtitle: [
+                        if (_selected == null) o.event.time ?? 'ganztägig',
+                        o.event.who.isEmpty
+                            ? 'Beide'
+                            : names[o.event.who] ?? '?',
+                        if (o.event.yearly && o.day.year != o.event.date.year)
+                          '${o.day.year - o.event.date.year}. Mal',
+                      ].join(' · '),
+                      onTap: () => _openEdit(context, o.event, null),
+                    ),
+                ],
               ),
           ],
         );

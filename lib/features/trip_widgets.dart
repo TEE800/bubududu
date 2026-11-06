@@ -14,6 +14,7 @@ import '../services/place_image.dart';
 import '../services/weather.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
 import '../widgets/recipe_image.dart' show recipePhotoPickerProvider;
 import 'contract_files.dart';
 import 'trips.dart';
@@ -359,48 +360,49 @@ class TripTile extends StatelessWidget {
       ],
     );
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (big)
-              SizedBox(height: 170, child: image)
-            else
-              Expanded(child: image),
-            Padding(
-              padding: EdgeInsets.fromLTRB(12, 8, 12, big ? 12 : 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meta,
-                    maxLines: big ? 2 : 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall,
+    final framed = Padding(
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+      child: ClipRRect(borderRadius: BorderRadius.circular(21), child: image),
+    );
+    return CuteBox(
+      tone: trip.wish ? CuteTone.vanilla : CuteTone.pink,
+      radius: 26,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (big)
+            SizedBox(height: 176, child: framed)
+          else
+            Expanded(child: framed),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, big ? 12 : 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  meta,
+                  maxLines: big ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+                if (past && trip.rating > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Stars(rating: trip.rating, size: 14),
                   ),
-                  if (past && trip.rating > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Stars(rating: trip.rating, size: 14),
-                    ),
-                  if (big && trip.packing.isNotEmpty && !past) ...[
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: packed / trip.packing.length,
-                      minHeight: 6,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ],
+                if (big && trip.packing.isNotEmpty && !past) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: packed / trip.packing.length,
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -5,6 +5,8 @@ import '../data/offline.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 import 'health_rules.dart';
 
@@ -271,44 +273,53 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text('Keine Termine eingetragen.'),
               ),
-            for (final e in appointments) _entryTile(context, e, isMe),
+            if (appointments.isNotEmpty)
+              PicGrid(
+                children: [
+                  for (final e in appointments) _entryTile(context, e, isMe),
+                ],
+              ),
             if (profile?.birthday != null) ...[
               const SectionHeader('Empfehlungen'),
-              for (final s in states)
-                ListTile(
-                  leading: Icon(
-                    s.rec.kind == RecommendationKind.vaccination
-                        ? Icons.vaccines_outlined
-                        : Icons.health_and_safety_outlined,
-                    color: s.status == RecStatus.due
-                        ? Theme.of(context).colorScheme.error
-                        : Theme.of(context).colorScheme.primary,
-                  ),
-                  title: Text(s.rec.title),
-                  subtitle: Text(
-                    [
-                      s.rec.detail,
-                      switch (s.status) {
-                        RecStatus.due when s.last == null =>
-                          'Noch nicht eingetragen',
-                        RecStatus.due =>
-                          'Fällig (zuletzt ${formatShortDate(s.last!)})',
-                        RecStatus.ok =>
-                          'Nächste ab ${formatShortDate(s.next!)}',
-                        RecStatus.done =>
-                          'Erledigt am ${formatShortDate(s.last!)}',
+              PicGrid(
+                tileHeight: 236,
+                children: [
+                  for (final s in states)
+                    PicTile(
+                      title: s.rec.title,
+                      emoji: s.rec.kind == RecommendationKind.vaccination
+                          ? '💉'
+                          : '🔍',
+                      tone: s.status == RecStatus.due
+                          ? CuteTone.pink
+                          : CuteTone.mint,
+                      badge: switch (s.status) {
+                        RecStatus.due => 'fällig',
+                        RecStatus.ok => 'ab ${formatShortDate(s.next!)}',
+                        RecStatus.done => 'erledigt',
                       },
-                    ].join('\n'),
-                  ),
-                  isThreeLine: true,
-                  trailing: isMe
-                      ? IconButton(
-                          tooltip: 'Erledigt eintragen',
-                          icon: const Icon(Icons.add_task),
-                          onPressed: () => _open(context, null, s.rec),
-                        )
-                      : null,
-                ),
+                      badgeWarn: s.status == RecStatus.due,
+                      subtitle: switch (s.status) {
+                        RecStatus.due when s.last == null =>
+                          'Noch nicht eingetragen · ${s.rec.detail}',
+                        RecStatus.due =>
+                          'Zuletzt ${formatShortDate(s.last!)} · ${s.rec.detail}',
+                        RecStatus.ok =>
+                          'Nächste ab ${formatShortDate(s.next!)} · ${s.rec.detail}',
+                        RecStatus.done =>
+                          'Erledigt am ${formatShortDate(s.last!)} · ${s.rec.detail}',
+                      },
+                      corner: isMe
+                          ? TileButton(
+                              tooltip: 'Erledigt eintragen',
+                              icon: Icons.add_task,
+                              onPressed: () => _open(context, null, s.rec),
+                            )
+                          : null,
+                      onTap: isMe ? () => _open(context, null, s.rec) : null,
+                    ),
+                ],
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Text(
@@ -329,7 +340,12 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
                   mood: MascotMood.care,
                 ),
               ),
-            for (final e in history) _entryTile(context, e, isMe),
+            if (history.isNotEmpty)
+              PicGrid(
+                children: [
+                  for (final e in history) _entryTile(context, e, isMe),
+                ],
+              ),
           ],
         );
       }),
@@ -337,17 +353,23 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
   }
 
   Widget _entryTile(BuildContext context, HealthEntry e, bool editable) =>
-      ListTile(
-        leading: Icon(e.kind.icon),
-        title: Text(e.title),
-        subtitle: Text(
-          [
-            formatDate(e.date),
-            if (e.doctor.isNotEmpty) e.doctor,
-            if (e.isPrivate) 'privat',
-          ].join(' · '),
-        ),
-        trailing: e.isPrivate ? const Icon(Icons.lock_outline, size: 18) : null,
+      PicTile(
+        title: e.title,
+        emoji: switch (e.kind) {
+          HealthKind.appointment => '🩺',
+          HealthKind.vaccination => '💉',
+          HealthKind.checkup => '🔍',
+        },
+        tone: e.kind == HealthKind.appointment ? CuteTone.pink : CuteTone.mint,
+        badge: e.kind == HealthKind.appointment
+            ? relativeDay(e.date)
+            : formatShortDate(e.date),
+        badgeIcon: e.isPrivate ? Icons.lock_outline : null,
+        subtitle: [
+          formatDate(e.date),
+          if (e.doctor.isNotEmpty) e.doctor,
+          if (e.isPrivate) 'privat',
+        ].join(' · '),
         onTap: editable ? () => _open(context, e, null) : null,
       );
 

@@ -26,6 +26,7 @@ class CuteBox extends StatelessWidget {
     this.color,
     this.radius = 28,
     this.onTap,
+    this.onLongPress,
   });
 
   final Widget child;
@@ -33,6 +34,7 @@ class CuteBox extends StatelessWidget {
   final Color? color;
   final double radius;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +59,7 @@ class CuteBox extends StatelessWidget {
         color: color ?? (dark ? scheme.surfaceContainerHigh : Colors.white),
         borderRadius: shape,
         clipBehavior: Clip.antiAlias,
-        child: InkWell(onTap: onTap, child: child),
+        child: InkWell(onTap: onTap, onLongPress: onLongPress, child: child),
       ),
     );
   }

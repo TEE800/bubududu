@@ -13,6 +13,8 @@ import '../services/weather.dart' show httpClientProvider;
 import '../util/dates.dart';
 import '../util/trade_republic.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 import 'depot_charts.dart';
 
@@ -377,8 +379,14 @@ class _DepotScreenState extends ConsumerState<DepotScreen> {
               if (_charts)
                 DepotCharts(positions: positions)
               else
-                for (final p in positions)
-                  _PositionTile(position: p, onTap: () => _edit(p)),
+                PicGrid(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  tileHeight: 200,
+                  children: [
+                    for (final p in positions)
+                      _PositionTile(position: p, onTap: () => _edit(p)),
+                  ],
+                ),
             ],
             const SizedBox(height: 16),
             Padding(
@@ -450,34 +458,28 @@ class _PositionTile extends ConsumerWidget {
     final v = positionValue(p, quote);
     final change = quote?.value?.changePercent;
     final gain = v.value - p.invested;
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        title: Text(p.name, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          [
-            '${formatShares(p.shares)} Stück',
-            if (change != null)
-              'heute ${formatPercent(change)}'
-            else if (p.symbol == null)
-              'kein Kürzel gefunden'
-            else if (quote?.hasError ?? false)
-              'Kurs für ${p.symbol} nicht abrufbar',
-          ].join(' · '),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(formatEuro(v.value)),
-            if (p.invested > 0)
-              Text(
-                '${formatSigned(gain)} · ${formatPercent(gain / p.invested * 100)}',
-                style: TextStyle(color: gainColor(context, gain)),
-              ),
-          ],
-        ),
-      ),
+    final trend = change ?? (p.invested > 0 ? gain : null);
+    return PicTile(
+      title: p.name,
+      emoji: trend == null
+          ? '💼'
+          : trend >= 0
+          ? '📈'
+          : '📉',
+      tone: trend != null && trend < 0 ? CuteTone.pink : CuteTone.mint,
+      badge: formatEuro(v.value),
+      subtitle: [
+        if (p.invested > 0)
+          '${formatSigned(gain)} · ${formatPercent(gain / p.invested * 100)}',
+        '${formatShares(p.shares)} Stück',
+        if (change != null)
+          'heute ${formatPercent(change)}'
+        else if (p.symbol == null)
+          'kein Kürzel gefunden'
+        else if (quote?.hasError ?? false)
+          'Kurs für ${p.symbol} nicht abrufbar',
+      ].join(' · '),
+      onTap: onTap,
     );
   }
 }

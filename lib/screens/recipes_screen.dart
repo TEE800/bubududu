@@ -493,10 +493,7 @@ class _RecipeTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text(
-                    ' $page',
-                    style: _bookText(size: 12, color: _inkSoft),
-                  ),
+                  Text(' $page', style: _bookText(size: 12, color: _inkSoft)),
                 ],
               ),
             ),

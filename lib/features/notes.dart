@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/store.dart';
+import '../util/symbols.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 
 const noteCategories = [
@@ -106,22 +109,27 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                     'Hier ist Platz für WLAN-Passwort, Handwerker-Nummern, '
                     'Kleidergrößen und Geschenkideen.',
               ),
-            for (final n in shown)
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: Icon(
-                    n.pinned ? Icons.push_pin : Icons.sticky_note_2_outlined,
+            PicGrid(
+              children: [
+                for (final n in shown)
+                  PicTile(
+                    title: n.title,
+                    emoji: symbolFor(
+                      '${n.category} ${n.title}',
+                      noteSymbols,
+                      '📝',
+                    ),
+                    tone: _toneFor(n),
+                    picture: n.body.trim().isEmpty
+                        ? null
+                        : _NotePaper(note: n, tone: _toneFor(n)),
+                    subtitle: n.category,
+                    badge: n.pinned ? 'angepinnt' : null,
+                    badgeIcon: n.pinned ? Icons.push_pin : null,
+                    onTap: () => _open(context, n),
                   ),
-                  title: Text(n.title),
-                  subtitle: Text(
-                    n.body.isEmpty ? n.category : n.body,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => _open(context, n),
-                ),
-              ),
+              ],
+            ),
           ],
         );
       }),
@@ -137,6 +145,37 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       ),
     ),
   );
+}
+
+CuteTone _toneFor(Note n) => switch (n.category) {
+  'Wichtig' || 'Geschenkideen' => CuteTone.pink,
+  'Kontakte & Nummern' || 'Größen & Maße' => CuteTone.mint,
+  _ => CuteTone.vanilla,
+};
+
+/// Notizzettel als Bild der Kachel: der Anfang des Textes auf Pastellpapier.
+class _NotePaper extends StatelessWidget {
+  const _NotePaper({required this.note, required this.tone});
+
+  final Note note;
+  final CuteTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    return ColoredBox(
+      color: dark ? theme.colorScheme.surfaceContainerHighest : tone.soft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        child: Text(
+          note.body.trim(),
+          overflow: TextOverflow.fade,
+          style: theme.textTheme.bodyMedium?.copyWith(height: 1.3),
+        ),
+      ),
+    );
+  }
 }
 
 class NoteEditScreen extends ConsumerStatefulWidget {

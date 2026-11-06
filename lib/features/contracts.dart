@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
+import '../util/symbols.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 import 'contract_files.dart';
 
@@ -180,33 +183,34 @@ class ContractsScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            for (final c in list)
-              ListTile(
-                leading: const CircleAvatar(
-                  child: Icon(Icons.description_outlined),
-                ),
-                title: Text(c.name),
-                subtitle: Text(
-                  [
-                    if (c.provider.isNotEmpty) c.provider,
-                    '${formatCents(c.costCents)} ${c.interval.label}',
-                    if (members.length > 1) payerText(c, names),
-                    if (c.cancelBy != null)
-                      c.cancelBy!.isBefore(dateOnly(now))
-                          ? 'Frist vorbei (${formatShortDate(c.cancelBy!)})'
-                          : 'kündigen bis ${formatShortDate(c.cancelBy!)}',
-                  ].join(' · '),
-                ),
-                trailing:
-                    c.cancelBy != null &&
-                        upcomingDeadlines([c], now: now).isNotEmpty
-                    ? Icon(
-                        Icons.warning_amber,
-                        color: Theme.of(context).colorScheme.error,
-                      )
-                    : null,
-                onTap: () => _open(context, c),
-              ),
+            PicGrid(
+              children: [
+                for (final c in list)
+                  PicTile(
+                    title: c.name,
+                    emoji: symbolFor(
+                      '${c.name} ${c.provider}',
+                      contractSymbols,
+                      '📄',
+                    ),
+                    tone: CuteTone.vanilla,
+                    badge: formatCents(c.costCents),
+                    subtitle: [
+                      if (c.cancelBy != null)
+                        c.cancelBy!.isBefore(dateOnly(now))
+                            ? 'Frist vorbei (${formatShortDate(c.cancelBy!)})'
+                            : 'kündigen bis ${formatShortDate(c.cancelBy!)}',
+                      if (c.provider.isNotEmpty) c.provider,
+                      c.interval.label,
+                      if (members.length > 1) payerText(c, names),
+                    ].join(' · '),
+                    warn:
+                        c.cancelBy != null &&
+                        upcomingDeadlines([c], now: now).isNotEmpty,
+                    onTap: () => _open(context, c),
+                  ),
+              ],
+            ),
           ],
         );
       }),

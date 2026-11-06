@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../util/money.dart';
+import '../util/symbols.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 import 'contracts.dart';
 import 'trips.dart';
@@ -185,6 +188,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
     final contracts = ref.watch(contractsProvider(widget.householdId)).value;
     final names = memberNames(ref, widget.householdId);
     final members = memberIds(ref, widget.householdId);
+    final uid = ref.watch(uidProvider);
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -319,25 +323,31 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
                   mood: MascotMood.money,
                 ),
               ),
-            for (final e in inMonth)
-              ListTile(
-                leading: CircleAvatar(
-                  child: Icon(
-                    e.isSettlement ? Icons.swap_horiz : Icons.receipt_long,
-                  ),
-                ),
-                title: Text(e.title),
-                subtitle: Text(
-                  [
-                    formatShortDate(e.date),
-                    '${names[e.paidBy] ?? '?'} hat bezahlt',
-                    if (!e.isSettlement) e.category,
-                    if (!e.isSettlement && e.split == Split.other)
-                      'nur für die andere Person',
-                  ].join(' · '),
-                ),
-                trailing: Text(formatCents(e.amountCents)),
-                onTap: () => _open(context, e),
+            if (inMonth.isNotEmpty)
+              PicGrid(
+                tileHeight: 196,
+                children: [
+                  for (final e in inMonth)
+                    PicTile(
+                      title: e.title,
+                      emoji: symbolFor(
+                        '${e.category} ${e.title}',
+                        expenseSymbols,
+                        '🧾',
+                      ),
+                      tone: e.isSettlement
+                          ? CuteTone.mint
+                          : toneForAssignee(e.paidBy, uid),
+                      badge: formatCents(e.amountCents),
+                      subtitle: [
+                        formatShortDate(e.date),
+                        '${names[e.paidBy] ?? '?'} hat bezahlt',
+                        if (!e.isSettlement && e.split == Split.other)
+                          'nur für die andere Person',
+                      ].join(' · '),
+                      onTap: () => _open(context, e),
+                    ),
+                ],
               ),
           ],
         );

@@ -6,6 +6,9 @@ import '../data/providers.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
+import '../widgets/recipe_image.dart';
 
 /// households/{id}/mealPlan/{yyyy-mm-dd}: was es an einem Tag zu essen gibt.
 String mealDocId(DateTime d) =>
@@ -62,6 +65,8 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final plan = ref.watch(mealPlanProvider(widget.householdId));
+    final recipes =
+        ref.watch(recipesProvider(widget.householdId)).value ?? const [];
     final end = addDays(_week, 6);
     return Scaffold(
       appBar: AppBar(title: const Text('Essensplan')),
@@ -89,46 +94,43 @@ class _MealPlanScreenState extends ConsumerState<MealPlanScreen> {
                 ),
               ],
             ),
-            for (var i = 0; i < 7; i++)
-              Builder(
-                builder: (context) {
-                  final day = addDays(_week, i);
-                  final text = map[mealDocId(day)] ?? '';
-                  final isToday = day == today();
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    color: isToday
-                        ? Theme.of(context).colorScheme.primaryContainer
-                        : null,
-                    child: ListTile(
-                      leading: SizedBox(
-                        width: 40,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              weekdayShort(day),
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
-                            Text('${day.day}.'),
-                          ],
-                        ),
-                      ),
-                      title: Text(
-                        text.isEmpty ? 'Noch nichts geplant' : text,
-                        style: text.isEmpty
-                            ? TextStyle(color: Theme.of(context).hintColor)
-                            : null,
-                      ),
-                      trailing: const Icon(Icons.edit_outlined),
-                      onTap: () => _edit(day, text),
-                    ),
-                  );
-                },
-              ),
+            PicGrid(
+              children: [
+                for (var i = 0; i < 7; i++)
+                  Builder(
+                    builder: (context) {
+                      final day = addDays(_week, i);
+                      final text = map[mealDocId(day)] ?? '';
+                      final isToday = day == today();
+                      final recipe = recipes
+                          .where(
+                            (r) =>
+                                r.title.trim().toLowerCase() ==
+                                text.trim().toLowerCase(),
+                          )
+                          .firstOrNull;
+                      return PicTile(
+                        title: text.isEmpty ? 'Noch nichts geplant' : text,
+                        emoji: text.isEmpty ? '🍽️' : '🥘',
+                        tone: isToday ? CuteTone.pink : CuteTone.vanilla,
+                        picture: recipe == null
+                            ? null
+                            : RecipeImage(
+                                householdId: widget.householdId,
+                                recipe: recipe,
+                                editable: false,
+                              ),
+                        badge: isToday
+                            ? 'Heute'
+                            : '${weekdayShort(day)} ${day.day}.',
+                        subtitle:
+                            '${weekdayLong(day)}, ${day.day}. ${monthNames[day.month - 1]}',
+                        onTap: () => _edit(day, text),
+                      );
+                    },
+                  ),
+              ],
+            ),
           ],
         );
       }),

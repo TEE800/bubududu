@@ -214,6 +214,41 @@ class PlantAvatar extends ConsumerWidget {
   }
 }
 
+/// Großes Bild für die Kachel: das neueste Foto, sonst [fallback].
+class PlantPicture extends ConsumerWidget {
+  const PlantPicture({
+    super.key,
+    required this.householdId,
+    required this.plant,
+    required this.fallback,
+  });
+
+  final String householdId;
+  final CareItem plant;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photo = plant.photoId.isEmpty
+        ? null
+        : ref
+              .watch(
+                plantPhotoProvider((
+                  householdId: householdId,
+                  photoId: plant.photoId,
+                )),
+              )
+              .value;
+    if (photo == null || photo.bytes.isEmpty) return fallback;
+    return Image.memory(
+      photo.bytes,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      cacheWidth: 600,
+    );
+  }
+}
+
 class PlantProfileScreen extends ConsumerWidget {
   const PlantProfileScreen({
     super.key,

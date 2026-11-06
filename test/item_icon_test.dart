@@ -72,7 +72,7 @@ void main() {
       );
       expect(find.text('🥛'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Produktfoto').first);
+      await tester.longPress(find.text('Milch'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Aus der Galerie'));
       await tester.pumpAndSettle();
@@ -82,9 +82,9 @@ void main() {
       expect(find.text('🥛'), findsNothing);
 
       // Wieder entfernen: das Symbol ist zurück.
-      await tester.tap(find.byTooltip('Produktfoto').first);
+      await tester.longPress(find.text('Milch'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Foto entfernen, Symbol zeigen'));
+      await tester.tap(find.text('Eigenes Foto entfernen'));
       await tester.pumpAndSettle();
       expect(find.text('🥛'), findsOneWidget);
     });

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
+import '../widgets/cute.dart';
+import '../widgets/pic_tile.dart';
 import '../widgets/mascots.dart';
 import 'plant_identify.dart';
 import 'plants.dart';
@@ -148,57 +150,66 @@ class CareScreen extends ConsumerWidget {
         }
         final plants = list.where((c) => c.kind == CareKind.plant).toList();
         final pets = list.where((c) => c.kind == CareKind.pet).toList();
-        Widget tile(CareItem c) => ListTile(
-          leading: c.kind == CareKind.plant
-              ? PlantAvatar(householdId: householdId, plant: c)
-              : CircleAvatar(child: Icon(c.kind.icon)),
-          title: Text('${c.name}: ${c.action}'),
-          subtitle: Text(
-            [
+        Widget tile(CareItem c) {
+          final due = c.isDue(now);
+          final emoji = c.kind == CareKind.plant ? '🪴' : '🐾';
+          final tone = c.kind == CareKind.plant
+              ? CuteTone.mint
+              : CuteTone.vanilla;
+          return PicTile(
+            title: c.name,
+            emoji: emoji,
+            tone: tone,
+            picture: c.kind == CareKind.plant
+                ? PlantPicture(
+                    householdId: householdId,
+                    plant: c,
+                    fallback: EmojiArt(emoji: emoji, tone: tone),
+                  )
+                : null,
+            badge: due ? 'jetzt fällig' : dueText(c.nextDue),
+            badgeWarn: due,
+            subtitle: [
+              '${c.action} alle ${c.intervalDays} Tage',
+              if (c.isFertilizeDue(now)) 'Düngen fällig',
               if (c.location.isNotEmpty) c.location,
-              'alle ${c.intervalDays} Tage',
               if (c.lastDone != null)
                 'zuletzt ${relativeDay(c.lastDone!)}'
                     '${c.lastBy.isEmpty ? '' : ' von ${names[c.lastBy] ?? '?'}'}',
-              c.isDue(now) ? 'jetzt fällig' : 'fällig ${dueText(c.nextDue)}',
-              if (c.isFertilizeDue(now)) 'Düngen fällig',
             ].join(' · '),
-            style: c.isDue(now) || c.isFertilizeDue(now)
-                ? TextStyle(color: Theme.of(context).colorScheme.error)
-                : null,
-          ),
-          trailing: IconButton(
-            tooltip: 'Erledigt',
-            icon: Icon(
-              Icons.check_circle,
-              color: c.isDue(now)
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
+            warn: c.isFertilizeDue(now),
+            corner: TileButton(
+              tooltip: 'Erledigt',
+              icon: Icons.check,
+              active: due,
+              onPressed: () => store.update('care', c.id, {
+                'lastDone': writeDate(today()),
+                'lastBy': store.uid,
+              }),
             ),
-            onPressed: () => store.update('care', c.id, {
-              'lastDone': writeDate(today()),
-              'lastBy': store.uid,
-            }),
-          ),
-          onTap: () => c.kind == CareKind.plant
-              ? Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => PlantProfileScreen(
-                      householdId: householdId,
-                      plantId: c.id,
+            onTap: () => c.kind == CareKind.plant
+                ? Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PlantProfileScreen(
+                        householdId: householdId,
+                        plantId: c.id,
+                      ),
                     ),
-                  ),
-                )
-              : _open(context, c),
-        );
+                  )
+                : _open(context, c),
+          );
+        }
+
         final both = plants.isNotEmpty && pets.isNotEmpty;
         return ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
             if (both) const SectionHeader('Pflanzen'),
-            for (final c in plants) tile(c),
+            if (plants.isNotEmpty)
+              PicGrid(children: [for (final c in plants) tile(c)]),
             if (both) const SectionHeader('Haustiere'),
-            for (final c in pets) tile(c),
+            if (pets.isNotEmpty)
+              PicGrid(children: [for (final c in pets) tile(c)]),
           ],
         );
       }),
