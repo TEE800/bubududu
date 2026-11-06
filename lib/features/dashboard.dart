@@ -401,8 +401,8 @@ Color _sunny(BuildContext context) =>
     ? const Color(0xFF4A3F1C)
     : const Color(0xFFFFF3CF);
 
-/// Die Aktionstage von heute. Gibt es heute keinen, die nächsten.
-/// Antippen zeigt, was hinter dem Tag steckt.
+/// Ein ernster und ein witziger Aktionstag. Gibt es heute keinen von einer
+/// Art, steht der nächste dieser Art da. Antippen zeigt, was dahintersteckt.
 class _AktionstageCard extends StatelessWidget {
   const _AktionstageCard({required this.now});
 
@@ -410,32 +410,28 @@ class _AktionstageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final todays = aktionstageAm(now);
-    final DateTime day;
-    final List<Aktionstag> shown;
-    final String intro;
-    if (todays.isNotEmpty) {
-      day = dateOnly(now);
-      shown = todays;
-      intro = 'Heute ist ${weekdayLong(now)} und außerdem:';
-    } else {
-      final next = naechsteAktionstage(now);
-      if (next == null) return const SizedBox.shrink();
-      day = next.$1;
-      shown = next.$2;
-      intro = daysBetween(now, day) == 1
-          ? 'Heute steht nichts an. Morgen ist:'
-          : 'Heute steht nichts an. Am ${formatDate(day, now: now)} ist:';
-    }
+    final shown = aktionstageFuerStartseite(now);
+    if (shown.isEmpty) return const SizedBox.shrink();
+    final anyToday = shown.any((e) => daysBetween(now, e.$1) == 0);
+    final scheme = Theme.of(context).colorScheme;
+    String wann(DateTime day) => switch (daysBetween(now, day)) {
+      0 => 'heute',
+      1 => 'morgen',
+      _ => 'am ${formatDate(day, now: now)}',
+    };
     return _DashCard(
       icon: Icons.celebration_outlined,
-      title: todays.isNotEmpty ? 'Aktionstage heute' : 'Nächster Aktionstag',
+      title: anyToday ? 'Aktionstage heute' : 'Nächste Aktionstage',
       color: _sunny(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(intro),
-          for (final t in shown)
+          Text(
+            anyToday
+                ? 'Heute ist ${weekdayLong(now)} und außerdem:'
+                : 'Heute steht nichts an. Als Nächstes:',
+          ),
+          for (final (day, t) in shown)
             InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: () => showAktionstag(context, t, day),
@@ -448,13 +444,26 @@ class _AktionstageCard extends StatelessWidget {
                           ? Icons.sentiment_very_satisfied_outlined
                           : Icons.public,
                       size: 20,
-                      color: Theme.of(context).colorScheme.secondary,
+                      color: scheme.secondary,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        t.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            '${t.witzig ? 'Zum Schmunzeln' : 'Zum Nachdenken'}'
+                            ' · ${wann(day)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const Icon(Icons.info_outline, size: 18),
