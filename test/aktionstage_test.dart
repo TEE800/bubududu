@@ -98,14 +98,13 @@ void main() {
   });
 
   group('Startseite', () {
-    test('immer ein ernster und ein witziger Tag', () {
+    test('immer etwas, und zwar von heute', () {
       var day = DateTime(2026, 1, 1);
       while (day.year == 2026) {
         final shown = aktionstageFuerStartseite(day);
-        expect(shown.any((e) => !e.$2.witzig), isTrue, reason: '$day');
-        expect(shown.any((e) => e.$2.witzig), isTrue, reason: '$day');
+        expect(shown, isNotEmpty, reason: '$day');
         for (final (d, _) in shown) {
-          expect(daysBetween(day, d), greaterThanOrEqualTo(0));
+          expect(daysBetween(day, d), 0, reason: '$day');
         }
         day = addDays(day, 1);
       }
@@ -119,15 +118,22 @@ void main() {
       }
     });
 
-    test('heutige Tage zuerst, fehlende Art vom nächsten Tag', () {
-      // 6.11.: nur der witzige Saxophon-Tag, der ernste kommt am 8.11.
+    test('Startseite zeigt nur die Tage von heute', () {
+      // 6. und 7.11.: kein ernster Tag, trotzdem nicht schon die
+      // Radiologie vom 8.11.
       final shown = aktionstageFuerStartseite(DateTime(2026, 11, 6, 9));
-      expect(shown.map((e) => e.$2.name), [
-        'Tag der Radiologie',
-        'Tag des Saxophons',
-      ]);
-      expect(shown.first.$1, DateTime(2026, 11, 8));
-      expect(shown.last.$1, DateTime(2026, 11, 6));
+      expect(shown.map((e) => e.$2.name), ['Tag des Saxophons']);
+      expect(shown.single.$1, DateTime(2026, 11, 6));
+      expect(
+        aktionstageFuerStartseite(DateTime(2026, 11, 7)).map((e) => e.$2.name),
+        ['Tag der Zartbitterschokolade'],
+      );
+      expect(
+        aktionstageFuerStartseite(
+          DateTime(2026, 11, 9, 23, 59),
+        ).map((e) => e.$2.name),
+        ['Schicksalstag der Deutschen', 'Tag der Erfinder'],
+      );
       // 31.10.: beides heute.
       expect(
         aktionstageFuerStartseite(DateTime(2026, 10, 31)).map((e) => e.$2.name),

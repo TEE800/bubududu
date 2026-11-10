@@ -43,23 +43,17 @@ List<Aktionstag> aktionstageAm(DateTime day) {
   return null;
 }
 
-/// Was die Startseite zeigt: immer einen ernsten und einen witzigen Tag.
-/// Gibt es heute keinen von einer Art, kommt der nächste dieser Art (höchstens
-/// ein Jahr voraus). Fallen heute mehrere an, kommen alle von heute.
+/// Was die Startseite zeigt: die Aktionstage von heute. Nur wenn heute gar
+/// nichts ansteht, kommen die vom nächsten Tag mit Aktionstagen. Früher kam
+/// eine fehlende Art (ernst/witzig) schon vom nächsten passenden Tag, dann
+/// stand z. B. tagelang "Tag der Radiologie" da, obwohl erst am 8.11.
 List<(DateTime, Aktionstag)> aktionstageFuerStartseite(DateTime day) {
   final today = dateOnly(day);
-  final result = <(DateTime, Aktionstag)>[];
-  for (final witzig in [false, true]) {
-    for (var i = 0; i <= 366; i++) {
-      final d = addDays(today, i);
-      final passend = aktionstageAm(d).where((t) => t.witzig == witzig);
-      if (passend.isNotEmpty) {
-        result.addAll(passend.map((t) => (d, t)));
-        break;
-      }
-    }
-  }
-  return result;
+  final heute = aktionstageAm(today);
+  if (heute.isNotEmpty) return [for (final t in heute) (today, t)];
+  final next = naechsteAktionstage(today);
+  if (next == null) return const [];
+  return [for (final t in next.$2) (next.$1, t)];
 }
 
 const _w = true;
