@@ -5,7 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
+import '../features/pantry.dart';
 import '../features/receipt_import.dart';
+import '../features/shopping_to_pantry.dart';
 import '../widgets/common.dart';
 import '../widgets/item_icon.dart';
 import '../widgets/mascots.dart';
@@ -36,6 +38,37 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
         .read(householdRepositoryProvider)
         .addShoppingItem(widget.householdId, text, ref.read(uidProvider));
     _input.clear();
+  }
+
+  /// Abhaken bucht den Einkauf in die Vorräte, "Wieder offen" nimmt das
+  /// zurück.
+  void _toggle(ShoppingItem item) {
+    final store = ref.read(storeProvider(widget.householdId));
+    if (item.done) {
+      reopenFromPantry(store, item);
+      return;
+    }
+    final pantry = ref.read(pantryProvider(widget.householdId)).value;
+    if (pantry == null) {
+      // Vorräte noch nicht geladen: nur abhaken.
+      ref
+          .read(householdRepositoryProvider)
+          .setShoppingItemDone(widget.householdId, item.id, true);
+      return;
+    }
+    final plan = checkOffIntoPantry(store, pantry, item);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            plan.created
+                ? '„${plan.name}“ ist jetzt in den Vorräten.'
+                : '„${plan.name}“ in den Vorräten: ${countText(plan.count)}',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 
   /// Löscht sofort, lässt sich aber ein paar Sekunden lang rückgängig machen.
@@ -101,6 +134,8 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
     final repo = ref.read(householdRepositoryProvider);
     final items = ref.watch(shoppingItemsProvider(widget.householdId));
     final household = ref.watch(householdProvider(widget.householdId)).value;
+    // Für das Abhaken: Vorräte schon geladen halten.
+    ref.watch(pantryProvider(widget.householdId));
 
     return Scaffold(
       appBar: AppBar(
@@ -176,11 +211,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                   ...list.where((i) => !i.done),
                   ...list.where((i) => i.done),
                 ];
-                void toggle(ShoppingItem item) => repo.setShoppingItemDone(
-                  widget.householdId,
-                  item.id,
-                  !item.done,
-                );
+                void toggle(ShoppingItem item) => _toggle(item);
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                   gridDelegate: picGridDelegate(context, tileHeight: 196),
