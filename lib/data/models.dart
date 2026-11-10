@@ -68,12 +68,16 @@ class ShoppingItem {
     required this.done,
     required this.addedBy,
     this.pending = false,
+    this.pantryUndo,
   });
 
   final String id;
   final String text;
   final bool done;
   final String addedBy;
+
+  /// Beim Abhaken in die Vorräte gebucht: was rückgängig zu machen ist.
+  final Map<String, dynamic>? pantryUndo;
 
   /// Offline geändert und noch nicht beim Server angekommen.
   final bool pending;
@@ -86,6 +90,9 @@ class ShoppingItem {
       done: data['done'] as bool? ?? false,
       addedBy: data['addedBy'] as String? ?? '',
       pending: doc.metadata.hasPendingWrites,
+      pantryUndo: data['pantryUndo'] is Map
+          ? Map<String, dynamic>.from(data['pantryUndo'] as Map)
+          : null,
     );
   }
 }

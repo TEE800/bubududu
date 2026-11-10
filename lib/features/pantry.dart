@@ -61,6 +61,7 @@ class PantryItem {
     this.shopRule = ShopRule.standard,
     this.shopAt,
     this.autoShopped = false,
+    this.count,
   });
 
   final String id;
@@ -84,6 +85,10 @@ class PantryItem {
   /// zurückgesetzt, wenn der Vorrat aufgefüllt ist, damit nichts doppelt
   /// oder nach dem Abhaken erneut auf der Liste landet.
   final bool autoShopped;
+
+  /// Wie viele Stück/Packungen da sind (optional). Steigt beim Abhaken auf
+  /// der Einkaufsliste, siehe shopping_to_pantry.dart.
+  final int? count;
 
   bool get countsUses => (uses ?? 0) > 0;
   bool get autoUses => countsUses && autoAmount > 0;
@@ -147,6 +152,7 @@ class PantryItem {
     shopRule: ShopRule.parse(d.data['shopRule'] as String?),
     shopAt: (d.data['shopAt'] as num?)?.toInt(),
     autoShopped: d.data['autoShopped'] == true,
+    count: (d.data['count'] as num?)?.toInt(),
   );
 
   /// Soll es jetzt (bei der Grundeinstellung [all]) auf die Einkaufsliste?
@@ -207,6 +213,9 @@ StockLevel levelForUses(double left, int total) {
   if (left <= math.max(1, total * 0.2)) return StockLevel.low;
   return StockLevel.full;
 }
+
+/// "1 Stück", "3 Stück".
+String countText(int count) => '$count Stück';
 
 /// "noch 9 von 10", "noch 1 von 10".
 String usesText(int left, int total) => 'noch $left von $total';
@@ -602,6 +611,7 @@ class PantryScreen extends ConsumerWidget {
                 ),
                 Text(
                   [
+                    if (i.count != null) countText(i.count!),
                     if (i.countsUses)
                       usesText(i.remaining(now), i.uses!)
                     // Knapp und leer stehen schon groß auf dem Bild.
@@ -661,8 +671,11 @@ class PantryScreen extends ConsumerWidget {
                       PopupMenuButton<StockLevel>(
                         tooltip: 'Bestand ändern',
                         icon: const Icon(Icons.tune),
-                        onSelected: (l) =>
-                            store.update('pantry', i.id, {'level': l.name}),
+                        onSelected: (l) => store.update('pantry', i.id, {
+                          'level': l.name,
+                          if (i.count != null && l == StockLevel.empty)
+                            'count': 0,
+                        }),
                         itemBuilder: (_) => [
                           for (final l in StockLevel.values)
                             PopupMenuItem(value: l, child: Text(l.label)),
@@ -723,6 +736,9 @@ class PantryEditScreen extends ConsumerStatefulWidget {
 class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
   late final _name = TextEditingController(text: widget.item?.name);
   late final _place = TextEditingController(text: widget.item?.place);
+  late final _count = TextEditingController(
+    text: widget.item?.count?.toString(),
+  );
   late StockLevel _level = widget.item?.level ?? StockLevel.full;
   late DateTime? _bestBefore = widget.item?.bestBefore;
 
@@ -748,6 +764,7 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
   void dispose() {
     _name.dispose();
     _place.dispose();
+    _count.dispose();
     _uses.dispose();
     _left.dispose();
     _autoAmount.dispose();
@@ -814,6 +831,11 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
     if (name.isEmpty) return showError(context, 'Bitte gib einen Namen ein.');
     final uses = _usesFields();
     if (uses == null) return;
+    final countInput = _count.text.trim();
+    final count = countInput.isEmpty ? null : int.tryParse(countInput);
+    if (countInput.isNotEmpty && (count == null || count < 0)) {
+      return showError(context, 'Bitte gib bei Anzahl eine ganze Zahl ein.');
+    }
     var rule = _shopRule;
     if (rule == ShopRule.uses && !_countUses) rule = ShopRule.low;
     int? shopAt;
@@ -833,6 +855,7 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
       {
         'name': name,
         'place': _place.text.trim(),
+        'count': count,
         'level': _level.name,
         'bestBefore': writeDate(_bestBefore),
         ...uses,
@@ -911,6 +934,15 @@ class _PantryEditScreenState extends ConsumerState<PantryEditScreen> {
             hintText: 'z. B. Küche, Bad, Keller',
           ),
           textCapitalization: TextCapitalization.sentences,
+        ),
+        TextField(
+          controller: _count,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Anzahl (optional)',
+            hintText: 'z. B. 3',
+            helperText: 'Steigt von selbst, wenn ihr es beim Einkaufen abhakt',
+          ),
         ),
         if (!_countUses)
           SegmentedButton<StockLevel>(

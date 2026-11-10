@@ -482,10 +482,9 @@ class MeadowPainter extends CustomPainter {
       final moon = Path.combine(
         PathOperation.difference,
         Path()..addOval(Rect.fromCircle(center: c, radius: 18)),
-        Path()
-          ..addOval(
-            Rect.fromCircle(center: c + const Offset(8, -6), radius: 16),
-          ),
+        Path()..addOval(
+          Rect.fromCircle(center: c + const Offset(8, -6), radius: 16),
+        ),
       );
       canvas.drawPath(moon, Paint()..color = const Color(0xFFFFF1C2));
     } else {
