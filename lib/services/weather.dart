@@ -248,9 +248,10 @@ Future<String?> placeName(http.Client client, double lat, double lng) async {
     'zoom': '10',
     'accept-language': 'de',
   });
-  final res = await client
-      .get(uri, headers: {'User-Agent': 'bubududu/1.0 (de.bubududu.bubududu)'})
-      .timeout(const Duration(seconds: 8));
+  final res = await client.get(
+    uri,
+    headers: {'User-Agent': 'bubududu/1.0 (de.bubududu.bubududu)'},
+  ).timeout(const Duration(seconds: 8));
   if (res.statusCode != 200) return null;
   final address =
       (jsonDecode(res.body) as Map<String, dynamic>)['address'] as Map? ??
