@@ -45,6 +45,29 @@ final stockSymbolsProvider = Provider.family<List<String>, String>(
   ),
 );
 
+/// Der heutige Tag. Wechselt, wenn die App nach Mitternacht wieder in den
+/// Vordergrund kommt, damit die Startseite (z. B. der Aktionstag) nicht beim
+/// Tag hängen bleibt, an dem sie zuletzt gebaut wurde.
+final todayProvider = NotifierProvider<TodayNotifier, DateTime>(
+  TodayNotifier.new,
+);
+
+class TodayNotifier extends Notifier<DateTime> with WidgetsBindingObserver {
+  @override
+  DateTime build() {
+    WidgetsBinding.instance.addObserver(this);
+    ref.onDispose(() => WidgetsBinding.instance.removeObserver(this));
+    return dateOnly(DateTime.now());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final today = dateOnly(DateTime.now());
+    if (today != this.state) this.state = today;
+  }
+}
+
 /// Die Startseite. [onOpenTab] wechselt den Tab unten (0 = Start).
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({
@@ -67,6 +90,7 @@ class DashboardScreen extends ConsumerWidget {
         .watch(householdProvider(householdId))
         .value;
     final name = household?.memberNames[uid] ?? '';
+    ref.watch(todayProvider);
     final now = DateTime.now();
     final greeting = now.hour < 11
         ? 'Guten Morgen'
