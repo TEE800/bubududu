@@ -61,10 +61,10 @@ class TodayNotifier extends Notifier<DateTime> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
-    if (lifecycle != AppLifecycleState.resumed) return;
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
     final today = dateOnly(DateTime.now());
-    if (today != state) state = today;
+    if (today != this.state) this.state = today;
   }
 }
 
