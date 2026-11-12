@@ -209,12 +209,14 @@ class HouseholdRepository {
     required List<String> ingredients,
     required String instructions,
     required String uid,
+    int servings = 1,
     bool resetImage = false,
   }) {
     final data = {
       'title': title,
       'ingredients': ingredients,
       'instructions': instructions,
+      'servings': servings,
       // Neuer Name: das automatische Bild wird neu gesucht.
       if (resetImage) ...{
         'imageUrl': FieldValue.delete(),

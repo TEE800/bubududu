@@ -129,9 +129,8 @@ void main() {
         ['Tag der Zartbitterschokolade'],
       );
       expect(
-        aktionstageFuerStartseite(
-          DateTime(2026, 11, 9, 23, 59),
-        ).map((e) => e.$2.name),
+        aktionstageFuerStartseite(DateTime(2026, 11, 9, 23, 59))
+            .map((e) => e.$2.name),
         ['Schicksalstag der Deutschen', 'Tag der Erfinder'],
       );
       // 31.10.: beides heute.
