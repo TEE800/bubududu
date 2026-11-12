@@ -124,6 +124,39 @@ void main() {
       expect(texts, ['Milch', 'Mehl']);
     });
 
+    testWidgets('Portionen anpassen rechnet Zutaten und Einkaufsliste um', (
+      tester,
+    ) async {
+      final ref = await db.collection('households/h1/recipes').add({
+        'title': 'Bolognese',
+        'ingredients': ['500 g Hackfleisch', '1 Zwiebel', 'etwas Salz'],
+        'instructions': '',
+        'servings': 4,
+      });
+      await pumpPage(
+        tester,
+        RecipeDetailScreen(householdId: 'h1', recipeId: ref.id),
+      );
+      expect(find.text('für 1 Portion'), findsOneWidget);
+      expect(find.text('125 g Hackfleisch'), findsOneWidget);
+      expect(find.text('¼ Zwiebel'), findsOneWidget);
+      expect(find.text('etwas Salz'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Eine Portion mehr'));
+      await settle(tester);
+      expect(find.text('für 2 Portionen'), findsOneWidget);
+      expect(find.text('250 g Hackfleisch'), findsOneWidget);
+      expect(find.text('½ Zwiebel'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Zutaten auf die Einkaufsliste'));
+      await tester.tap(find.text('Zutaten auf die Einkaufsliste'));
+      await settle(tester);
+      await tester.tap(find.text('3 auf die Einkaufsliste'));
+      await settle(tester);
+      final texts = (await docs('shoppingItems')).map((d) => d['text']);
+      expect(texts, containsAll(['250 g Hackfleisch', '½ Zwiebel']));
+    });
+
     testWidgets('Rezept löschen', (tester) async {
       final id =
           (await db.collection('households/h1/recipes').get()).docs.single.id;

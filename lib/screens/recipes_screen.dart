@@ -7,6 +7,7 @@ import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/store.dart';
 import '../services/recipe_scanner.dart';
+import '../util/portions.dart';
 import '../util/recipe_parser.dart';
 import '../widgets/common.dart';
 import '../widgets/mascots.dart';
@@ -505,14 +506,28 @@ class _RecipeTile extends StatelessWidget {
 }
 
 /// Eine Rezeptseite: Foto, Titel, Zutaten, Zubereitung.
-class _RecipePage extends ConsumerWidget {
+class _RecipePage extends ConsumerStatefulWidget {
   const _RecipePage({required this.householdId, required this.recipe});
 
   final String householdId;
   final Recipe recipe;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RecipePage> createState() => _RecipePageState();
+}
+
+class _RecipePageState extends ConsumerState<_RecipePage> {
+  /// Gewählte Anzahl Portionen; die Mengen werden darauf umgerechnet.
+  int _portions = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final householdId = widget.householdId;
+    final recipe = widget.recipe;
+    final factor = _portions / recipe.servings;
+    final ingredients = [
+      for (final i in recipe.ingredients) scaleIngredient(i, factor),
+    ];
     final household = ref.watch(householdProvider(householdId)).value;
     final author = household?.memberNames[recipe.addedBy];
     final steps = recipe.instructions
@@ -563,12 +578,17 @@ class _RecipePage extends ConsumerWidget {
         ],
         const _Ornament(),
         const _SectionTitle('Zutaten'),
+        if (recipe.ingredients.isNotEmpty)
+          _PortionPicker(
+            portions: _portions,
+            onChanged: (n) => setState(() => _portions = n),
+          ),
         if (recipe.ingredients.isEmpty)
           Text(
             'Keine Zutaten eingetragen.',
             style: _bookText(style: FontStyle.italic, color: _inkSoft),
           ),
-        for (final ingredient in recipe.ingredients)
+        for (final ingredient in ingredients)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(
@@ -596,7 +616,7 @@ class _RecipePage extends ConsumerWidget {
                     isScrollControlled: true,
                     builder: (_) => _SendToShoppingSheet(
                       householdId: householdId,
-                      recipe: recipe,
+                      ingredients: ingredients,
                     ),
                   ),
           ),
@@ -761,11 +781,73 @@ Future<void> _scanRecipe(BuildContext context, String householdId) async {
 
 /// Auswahl, welche Zutaten auf die Einkaufsliste sollen. Was dort schon
 /// offen steht, ist anfangs abgewählt.
+/// "für 1 Portion" mit Minus/Plus zum Umrechnen der Mengen.
+class _PortionPicker extends StatelessWidget {
+  const _PortionPicker({required this.portions, required this.onChanged});
+
+  final int portions;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget button(IconData icon, String tooltip, int? next) => IconButton(
+      icon: Icon(icon, size: 20),
+      tooltip: tooltip,
+      color: _accent,
+      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        side: BorderSide(color: next == null ? _inkSoft : _accent),
+      ),
+      onPressed: next == null ? null : () => onChanged(next),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'für ',
+                    style: _bookText(style: FontStyle.italic, color: _inkSoft),
+                  ),
+                  TextSpan(
+                    text: portionsLabel(portions),
+                    style: _bookText(weight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          button(
+            Icons.remove,
+            'Eine Portion weniger',
+            portions > 1 ? portions - 1 : null,
+          ),
+          const SizedBox(width: 4),
+          button(
+            Icons.add,
+            'Eine Portion mehr',
+            portions < 50 ? portions + 1 : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SendToShoppingSheet extends ConsumerStatefulWidget {
-  const _SendToShoppingSheet({required this.householdId, required this.recipe});
+  const _SendToShoppingSheet({
+    required this.householdId,
+    required this.ingredients,
+  });
 
   final String householdId;
-  final Recipe recipe;
+
+  /// Zutaten, schon auf die gewählten Portionen umgerechnet.
+  final List<String> ingredients;
 
   @override
   ConsumerState<_SendToShoppingSheet> createState() =>
@@ -788,7 +870,7 @@ class _SendToShoppingSheetState extends ConsumerState<_SendToShoppingSheet> {
             .map((i) => i.text.trim().toLowerCase())
             .toSet() ??
         const <String>{};
-    final ingredients = widget.recipe.ingredients;
+    final ingredients = widget.ingredients;
     _alreadyOnList = {
       for (var i = 0; i < ingredients.length; i++)
         if (open.contains(ingredients[i].trim().toLowerCase())) i,
@@ -802,8 +884,8 @@ class _SendToShoppingSheetState extends ConsumerState<_SendToShoppingSheet> {
   Future<void> _send() async {
     setState(() => _saving = true);
     final texts = [
-      for (var i = 0; i < widget.recipe.ingredients.length; i++)
-        if (_selected.contains(i)) widget.recipe.ingredients[i],
+      for (var i = 0; i < widget.ingredients.length; i++)
+        if (_selected.contains(i)) widget.ingredients[i],
     ];
     final messenger = ScaffoldMessenger.of(context);
     await ref
@@ -824,7 +906,7 @@ class _SendToShoppingSheetState extends ConsumerState<_SendToShoppingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final ingredients = widget.recipe.ingredients;
+    final ingredients = widget.ingredients;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -905,6 +987,9 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
   late final _instructions = TextEditingController(
     text: widget.recipe?.instructions ?? widget.draft?.instructions,
   );
+
+  /// Für wie viele Portionen die eingetragenen Mengen gelten.
+  late int _servings = widget.recipe?.servings ?? widget.draft?.servings ?? 1;
   bool _saving = false;
 
   @override
@@ -936,6 +1021,7 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
               .where((l) => l.isNotEmpty)
               .toList(),
           instructions: _instructions.text.trim(),
+          servings: _servings,
           uid: ref.read(uidProvider),
           resetImage: widget.recipe != null && widget.recipe!.title != title,
         );
@@ -998,7 +1084,30 @@ class _RecipeEditScreenState extends ConsumerState<RecipeEditScreen> {
             keyboardType: TextInputType.multiline,
             textCapitalization: TextCapitalization.sentences,
           ),
-          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(child: Text('Die Mengen gelten für')),
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline),
+                tooltip: 'Eine Portion weniger',
+                onPressed: _servings > 1
+                    ? () => setState(() => _servings--)
+                    : null,
+              ),
+              Text(
+                portionsLabel(_servings),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Eine Portion mehr',
+                onPressed: _servings < 50
+                    ? () => setState(() => _servings++)
+                    : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _instructions,
             decoration: const InputDecoration(

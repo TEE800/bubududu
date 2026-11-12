@@ -109,6 +109,7 @@ class Recipe {
     required this.ingredients,
     required this.instructions,
     required this.addedBy,
+    this.servings = 1,
     this.imageUrl,
     this.imagePage,
   });
@@ -116,6 +117,9 @@ class Recipe {
   final String id;
   final String title;
   final List<String> ingredients;
+
+  /// Für wie viele Portionen die Mengen in [ingredients] eingetragen sind.
+  final int servings;
   final String instructions;
   final String addedBy;
 
@@ -135,6 +139,10 @@ class Recipe {
       ingredients: List<String>.from(data['ingredients'] as List? ?? const []),
       instructions: data['instructions'] as String? ?? '',
       addedBy: data['addedBy'] as String? ?? '',
+      servings: switch (data['servings']) {
+        final num n when n >= 1 => n.round(),
+        _ => 1,
+      },
       imageUrl: data['imageUrl'] as String?,
       imagePage: data['imagePage'] as String?,
     );

@@ -6,11 +6,15 @@ class RecipeDraft {
     required this.title,
     required this.ingredients,
     required this.instructions,
+    this.servings,
   });
 
   final String title;
   final List<String> ingredients;
   final String instructions;
+
+  /// Für wie viele Portionen das Rezept gedacht ist, falls erkannt.
+  final int? servings;
 
   bool get isEmpty =>
       title.isEmpty && ingredients.isEmpty && instructions.isEmpty;
@@ -28,6 +32,10 @@ class OcrLine {
 final _ingredientsHeading = RegExp(
   r'^((haupt)?zutaten|ingredients|einkaufsliste|rezept\s+für\b|'
   r'für\s+\d+\s+(portionen|personen|stück)|\d+\s+(portionen|personen)\b)',
+  caseSensitive: false,
+);
+final _servingsPattern = RegExp(
+  r'\b(\d+)\s*(portionen|portion|personen|person|pers|servings)\b',
   caseSensitive: false,
 );
 final _instructionsHeading = RegExp(
@@ -324,8 +332,19 @@ RecipeDraft parseRecipeLines(List<OcrLine> raw) {
     }
   }
 
+  int? servings;
+  for (final t in texts) {
+    final m = _servingsPattern.firstMatch(t);
+    if (m != null) {
+      final n = int.parse(m[1]!);
+      if (n >= 1 && n <= 50) servings = n;
+      break;
+    }
+  }
+
   return RecipeDraft(
     title: title,
+    servings: servings,
     ingredients: _mergeQuantities(_tidyIngredients(ingredientLines)),
     instructions: _joinParagraphs(
       instructionLines.where((l) => !_isInstructionsHeading(l)).toList(),
