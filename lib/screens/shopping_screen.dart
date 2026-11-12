@@ -24,10 +24,14 @@ class ShoppingScreen extends ConsumerStatefulWidget {
 
 class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
   final _input = TextEditingController();
+  final _amount = TextEditingController();
+  final _inputFocus = FocusNode();
 
   @override
   void dispose() {
     _input.dispose();
+    _amount.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
@@ -36,8 +40,59 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
     if (text.isEmpty) return;
     ref
         .read(householdRepositoryProvider)
-        .addShoppingItem(widget.householdId, text, ref.read(uidProvider));
+        .addShoppingItem(
+          widget.householdId,
+          text,
+          ref.read(uidProvider),
+          amount: _amount.text,
+        );
     _input.clear();
+    _amount.clear();
+    _inputFocus.requestFocus();
+  }
+
+  /// Lange drücken: Name und Menge ändern oder ein Foto wählen.
+  Future<void> _more(ShoppingItem item) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Name und Menge ändern'),
+              onTap: () => Navigator.pop(context, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Foto wählen'),
+              onTap: () => Navigator.pop(context, 'photo'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'edit') await _edit(item);
+    if (action == 'photo') await _photo(item.text);
+  }
+
+  Future<void> _edit(ShoppingItem item) async {
+    final result = await showDialog<({String text, String amount})>(
+      context: context,
+      builder: (_) => _EditItemDialog(item: item),
+    );
+    if (result == null || result.text.trim().isEmpty) return;
+    await ref
+        .read(householdRepositoryProvider)
+        .updateShoppingItem(
+          widget.householdId,
+          item.id,
+          text: result.text,
+          amount: result.amount,
+        );
   }
 
   /// Abhaken bucht den Einkauf in die Vorräte, "Wieder offen" nimmt das
@@ -88,6 +143,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
               item.text,
               item.addedBy.isEmpty ? uid : item.addedBy,
               done: item.done,
+              amount: item.amount,
             ),
           ),
         ),
@@ -180,18 +236,36 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
-              controller: _input,
-              decoration: InputDecoration(
-                hintText: 'Was brauchen wir?',
-                suffixIcon: IconButton(
-                  tooltip: 'Hinzufügen',
-                  icon: const Icon(Icons.add),
-                  onPressed: _add,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _input,
+                    focusNode: _inputFocus,
+                    decoration: const InputDecoration(
+                      hintText: 'Was brauchen wir?',
+                    ),
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: (_) => _add(),
+                  ),
                 ),
-              ),
-              textCapitalization: TextCapitalization.sentences,
-              onSubmitted: (_) => _add(),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 112,
+                  child: TextField(
+                    controller: _amount,
+                    decoration: InputDecoration(
+                      hintText: 'Menge',
+                      suffixIcon: IconButton(
+                        tooltip: 'Hinzufügen',
+                        icon: const Icon(Icons.add),
+                        onPressed: _add,
+                      ),
+                    ),
+                    onSubmitted: (_) => _add(),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -226,6 +300,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                         name: item.text,
                         editable: false,
                       ),
+                      tag: item.amount,
                       done: item.done,
                       subtitle: [
                         if (household != null)
@@ -244,8 +319,8 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
                         onPressed: () => _delete(item),
                       ),
                       onTap: () => toggle(item),
-                      // Lange drücken: eigenes Produktfoto wählen.
-                      onLongPress: () => _photo(item.text),
+                      // Lange drücken: Name/Menge ändern oder Foto wählen.
+                      onLongPress: () => _more(item),
                     );
                   },
                 );
@@ -254,6 +329,64 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Name und Menge eines Eintrags ändern.
+class _EditItemDialog extends StatefulWidget {
+  const _EditItemDialog({required this.item});
+
+  final ShoppingItem item;
+
+  @override
+  State<_EditItemDialog> createState() => _EditItemDialogState();
+}
+
+class _EditItemDialogState extends State<_EditItemDialog> {
+  late final _text = TextEditingController(text: widget.item.text);
+  late final _amount = TextEditingController(text: widget.item.amount);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  void _save() =>
+      Navigator.pop(context, (text: _text.text, amount: _amount.text));
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Eintrag ändern'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _text,
+            decoration: const InputDecoration(labelText: 'Was'),
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amount,
+            decoration: const InputDecoration(
+              labelText: 'Menge (optional)',
+              hintText: 'z. B. 2 oder 500 g',
+            ),
+            onSubmitted: (_) => _save(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Speichern')),
+      ],
     );
   }
 }

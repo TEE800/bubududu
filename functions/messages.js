@@ -17,13 +17,23 @@ const day = (ts) => {
  * @param {string} name Anzeigename der Person, die es eingetragen hat
  * @param {string} recipient uid der Person, die die Nachricht bekommt
  */
+/**
+ * Eintrag der Einkaufsliste mit Mengenangabe davor: „500 g Mehl“.
+ * @param {Record<string, any>} data
+ */
+export function withAmount(data) {
+  const text = data.text ?? '';
+  const amount = typeof data.amount === 'string' ? data.amount.trim() : '';
+  return amount ? `${amount} ${text}` : text;
+}
+
 export function messageFor(collection, data, name, recipient) {
   const t = data.title ?? data.text ?? data.name ?? '';
   switch (collection) {
     case 'shoppingItems':
       return {
         title: 'Einkaufsliste',
-        body: `${name} hat „${t}“ auf die Einkaufsliste gesetzt.`,
+        body: `${name} hat „${withAmount(data)}“ auf die Einkaufsliste gesetzt.`,
         // Mehrere Einträge auf einmal (z. B. Rezept) ersetzen sich gegenseitig.
         tag: 'shopping',
       };

@@ -54,6 +54,38 @@ void main() {
     });
   });
 
+  group('Eigene Mengenangabe', () {
+    test('Anzahl aus dem Mengenfeld', () {
+      expect(amountCount(''), 1);
+      expect(amountCount('2'), 2);
+      expect(amountCount('3 Stück'), 3);
+      expect(amountCount('2 Packungen'), 2);
+      expect(amountCount('2x'), 2);
+      expect(amountCount('500 g'), 1);
+      expect(amountCount('500g'), 1);
+      expect(amountCount('1,5 l'), 1);
+      expect(amountCount('etwas'), 1);
+      expect(amountCount('0'), 1);
+    });
+
+    test('Mengenfeld gilt statt Zahl im Namen', () {
+      expect(parseShoppingItem('Eier', '6'), (name: 'Eier', amount: 6));
+      expect(parseShoppingItem('3 Eier', ''), (name: 'Eier', amount: 3));
+      expect(parseShoppingItem('Mehl', '500 g'), (name: 'Mehl', amount: 1));
+    });
+
+    test('beim Abhaken zählt die Menge', () {
+      final p = planPurchase(
+        [_item('a', 'Milch', count: 1)],
+        'Milch',
+        now,
+        amount: '2',
+      );
+      expect(p.pantryId, 'a');
+      expect(p.count, 3);
+    });
+  });
+
   group('In die Vorräte buchen', () {
     test('neues Produkt wird angelegt', () {
       final p = planPurchase([], 'äpfel', now);

@@ -130,9 +130,11 @@ class HouseholdRepository {
     String text,
     String uid, {
     bool done = false,
+    String amount = '',
   }) => writeInBackground(
     _items(householdId).doc().set({
       'text': text,
+      if (amount.trim().isNotEmpty) 'amount': amount.trim(),
       'done': done,
       'addedBy': uid,
       'createdAt': FieldValue.serverTimestamp(),
@@ -156,6 +158,19 @@ class HouseholdRepository {
     }
     return writeInBackground(batch.commit());
   }
+
+  /// Ändert Name und Mengenangabe eines Eintrags. Leere Menge löscht sie.
+  Future<void> updateShoppingItem(
+    String householdId,
+    String itemId, {
+    required String text,
+    required String amount,
+  }) => writeInBackground(
+    _items(householdId).doc(itemId).update({
+      'text': text.trim(),
+      'amount': amount.trim().isEmpty ? FieldValue.delete() : amount.trim(),
+    }),
+  );
 
   Future<void> setShoppingItemDone(
     String householdId,

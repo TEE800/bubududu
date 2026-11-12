@@ -67,12 +67,16 @@ class ShoppingItem {
     required this.text,
     required this.done,
     required this.addedBy,
+    this.amount = '',
     this.pending = false,
     this.pantryUndo,
   });
 
   final String id;
   final String text;
+
+  /// Freiwillige Mengenangabe, z. B. "2" oder "500 g". Leer: keine Angabe.
+  final String amount;
   final bool done;
   final String addedBy;
 
@@ -87,6 +91,7 @@ class ShoppingItem {
     return ShoppingItem(
       id: doc.id,
       text: data['text'] as String? ?? '',
+      amount: (data['amount'] as String? ?? '').trim(),
       done: data['done'] as bool? ?? false,
       addedBy: data['addedBy'] as String? ?? '',
       pending: doc.metadata.hasPendingWrites,

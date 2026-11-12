@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { messageFor } from './messages.js';
+import { messageFor, withAmount } from './messages.js';
 
 test('Einkaufsliste', () => {
   const m = messageFor('shoppingItems', { text: 'Milch', addedBy: 'f' }, 'Bubu', 'k');
@@ -39,4 +39,10 @@ test('Interne Sammlungen bleiben still', () => {
   for (const c of ['taskLog', 'locations', 'health', 'mealPlan', 'pantry']) {
     assert.equal(messageFor(c, { title: 'x' }, 'Bubu', 'k'), null);
   }
+});
+
+test('Einkaufsliste mit Menge', () => {
+  const m = messageFor('shoppingItems', { text: 'Mehl', amount: '500 g' }, 'Bubu', 'k');
+  assert.equal(m.body, 'Bubu hat „500 g Mehl“ auf die Einkaufsliste gesetzt.');
+  assert.equal(withAmount({ text: 'Milch', amount: ' ' }), 'Milch');
 });
