@@ -71,6 +71,30 @@ final _countSuffix = RegExp(
   return (name: t, amount: 1);
 }
 
+/// Wie viele Stück eine eigene Mengenangabe bedeutet: "2" und "2 Packungen"
+/// sind 2, Gewichte wie "500 g" zählen als eine Packung.
+int amountCount(String amount) {
+  final a = amount.trim();
+  if (a.isEmpty) return 1;
+  final m = RegExp(r'^(\d{1,3})(?:\s*[.,]\d+)?').firstMatch(a);
+  if (m == null) return 1;
+  // Gewicht oder Rezeptmenge? Dann eine Packung.
+  if (_measurePrefix.hasMatch('$a x')) return 1;
+  if (_countPrefix.hasMatch('$a x')) {
+    final n = int.parse(m.group(1)!);
+    return n > 0 ? n : 1;
+  }
+  return 1;
+}
+
+/// Zerlegt Eintrag und eigene Mengenangabe. Steht eine Menge im eigenen Feld,
+/// gilt sie statt einer Zahl im Namen.
+({String name, int amount}) parseShoppingItem(String text, String amount) {
+  final parsed = parsePurchase(text);
+  if (amount.trim().isEmpty) return parsed;
+  return (name: parsed.name, amount: amountCount(amount));
+}
+
 /// Der passende Vorrat zu [name], erst genau, dann über den Wortstamm.
 PantryItem? findPantryMatch(List<PantryItem> pantry, String name) {
   final key = productKey(name);
@@ -118,8 +142,9 @@ PantryPurchase planPurchase(
   String text,
   DateTime now, {
   String? pantryId,
+  String amount = '',
 }) {
-  final parsed = parsePurchase(text);
+  final parsed = parseShoppingItem(text, amount);
   final match =
       (pantryId == null
           ? null
@@ -187,6 +212,7 @@ PantryPurchase checkOffIntoPantry(
     item.text,
     DateTime.now(),
     pantryId: _linkedPantryId(item.id),
+    amount: item.amount,
   );
   final id = plan.pantryId ?? store.newId('pantry');
   if (plan.created) {

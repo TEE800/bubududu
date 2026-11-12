@@ -74,6 +74,9 @@ void main() {
 
       await tester.longPress(find.text('Milch'));
       await tester.pumpAndSettle();
+      // In der Einkaufsliste erst „Foto wählen“ (daneben: Name und Menge).
+      await tester.tap(find.text('Foto wählen'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Aus der Galerie'));
       await tester.pumpAndSettle();
 
@@ -83,6 +86,9 @@ void main() {
 
       // Wieder entfernen: das Symbol ist zurück.
       await tester.longPress(find.text('Milch'));
+      await tester.pumpAndSettle();
+      // In der Einkaufsliste erst „Foto wählen“ (daneben: Name und Menge).
+      await tester.tap(find.text('Foto wählen'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Eigenes Foto entfernen'));
       await tester.pumpAndSettle();

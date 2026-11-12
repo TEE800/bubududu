@@ -10,7 +10,7 @@ import { logger } from 'firebase-functions';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { handleAlexa, MAX_CODE_ATTEMPTS } from './alexa.js';
-import { messageFor } from './messages.js';
+import { messageFor, withAmount } from './messages.js';
 import { identify } from './plantnet.js';
 
 initializeApp();
@@ -96,7 +96,9 @@ const alexaStore = {
       .collection(`households/${householdId}/shoppingItems`)
       .orderBy('createdAt')
       .get();
-    return snap.docs.filter((d) => !d.data().done).map((d) => d.data().text ?? '');
+    return snap.docs
+      .filter((d) => !d.data().done)
+      .map((d) => withAmount(d.data()));
   },
 
   async addItems({ householdId, uid }, texts) {

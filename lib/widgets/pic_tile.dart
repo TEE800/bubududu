@@ -17,6 +17,7 @@ class PicTile extends StatelessWidget {
     this.badge,
     this.badgeIcon,
     this.badgeWarn = false,
+    this.tag,
     this.corner,
     this.cornerRight,
     this.footer,
@@ -42,6 +43,9 @@ class PicTile extends StatelessWidget {
   final String? badge;
   final IconData? badgeIcon;
   final bool badgeWarn;
+
+  /// Schild unten links auf dem Bild, z. B. eine Mengenangabe („500 g“).
+  final String? tag;
 
   /// Knopf oben links auf dem Bild, z. B. zum Abhaken.
   final Widget? corner;
@@ -90,6 +94,12 @@ class PicTile extends StatelessWidget {
                             icon: badgeIcon,
                             warn: badgeWarn,
                           ),
+                        ),
+                      if (tag != null && tag!.isNotEmpty)
+                        Positioned(
+                          left: 6,
+                          bottom: 6,
+                          child: TileBadge(label: tag!),
                         ),
                       if (corner != null)
                         Positioned(top: 2, left: 2, child: corner!),
