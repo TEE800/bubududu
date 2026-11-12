@@ -445,65 +445,95 @@ Future<void> showItemPhotoSheet(
   final choice = await showModalBottomSheet<Object>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
     builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(
-              'Produktfoto für „${name.trim()}“',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_camera_outlined),
-            title: const Text('Foto aufnehmen'),
-            onTap: () => Navigator.of(context).pop(ImageSource.camera),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: const Text('Aus der Galerie'),
-            onTap: () => Navigator.of(context).pop(ImageSource.gallery),
-          ),
-          if (hasPhoto)
-            ListTile(
-              leading: const Icon(Icons.hide_image_outlined),
-              title: Text(
-                autoImage == null
-                    ? 'Foto entfernen, Symbol zeigen'
-                    : 'Eigenes Foto entfernen',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Produktfoto für „${name.trim()}“',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              onTap: () => Navigator.of(context).pop(false),
             ),
-          if (!hasPhoto && autoImage != null && autoImage.shows)
             ListTile(
-              leading: const Icon(Icons.hide_image_outlined),
-              title: const Text('Passt nicht, lieber Symbol zeigen'),
-              onTap: () => Navigator.of(context).pop(#hideAuto),
+              leading: const Icon(Icons.collections_outlined),
+              title: const Text('Bild aus Vorschlägen aussuchen'),
+              onTap: () => Navigator.of(context).pop(#choose),
             ),
-          if (!hasPhoto && autoImage != null && !autoImage.shows)
             ListTile(
-              leading: const Icon(Icons.image_search),
-              title: const Text('Bild automatisch suchen'),
-              onTap: () => Navigator.of(context).pop(#searchAuto),
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Foto aufnehmen'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
-          if (!hasPhoto &&
-              autoImage != null &&
-              autoImage.shows &&
-              autoImage.page != null)
             ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('Bildquelle: Wikipedia'),
-              onTap: () =>
-                  Navigator.of(context).pop(Uri.parse(autoImage.page!)),
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Aus der Galerie'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
             ),
-        ],
+            if (hasPhoto)
+              ListTile(
+                leading: const Icon(Icons.hide_image_outlined),
+                title: Text(
+                  autoImage == null
+                      ? 'Foto entfernen, Symbol zeigen'
+                      : 'Eigenes Foto entfernen',
+                ),
+                onTap: () => Navigator.of(context).pop(false),
+              ),
+            if (!hasPhoto && autoImage != null && autoImage.shows)
+              ListTile(
+                leading: const Icon(Icons.hide_image_outlined),
+                title: const Text('Passt nicht, lieber Symbol zeigen'),
+                onTap: () => Navigator.of(context).pop(#hideAuto),
+              ),
+            if (!hasPhoto && autoImage != null && !autoImage.shows)
+              ListTile(
+                leading: const Icon(Icons.image_search),
+                title: const Text('Bild automatisch suchen'),
+                onTap: () => Navigator.of(context).pop(#searchAuto),
+              ),
+            if (!hasPhoto &&
+                autoImage != null &&
+                autoImage.shows &&
+                autoImage.page != null)
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: Text(
+                  autoImage.page!.contains('wikipedia')
+                      ? 'Bildquelle: Wikipedia'
+                      : 'Bildquelle: Wikimedia Commons',
+                ),
+                onTap: () =>
+                    Navigator.of(context).pop(Uri.parse(autoImage.page!)),
+              ),
+          ],
+        ),
       ),
     ),
   );
   if (choice == false) return deleteItemPhoto(store, name);
   final autoDoc = store.col('itemImages').doc(itemPhotoKey(name));
+  if (choice == #choose) {
+    if (!context.mounted) return;
+    final image = await showProductImageChooser(context, ref, name);
+    if (image == null) return;
+    // Das ausgesuchte Bild gilt auch, wenn vorher ein eigenes Foto da war.
+    if (hasPhoto) await deleteItemPhoto(store, name);
+    return writeInBackground(
+      autoDoc.set({
+        'name': name.trim(),
+        'url': image.url,
+        'page': image.page,
+        'picked': true,
+        'hidden': false,
+        'v': itemImageVersion,
+        'createdAt': FieldValue.serverTimestamp(),
+      }),
+    );
+  }
   if (choice == #hideAuto) {
     return writeInBackground(autoDoc.update({'hidden': true}));
   }
@@ -531,18 +561,183 @@ Future<void> showItemPhotoSheet(
   await saveItemPhoto(store, name, bytes);
 }
 
+/// Zeigt Bildvorschläge zum Produkt [name] als Raster; das angetippte Bild
+/// kommt zurück, abgebrochen: null.
+Future<ProductImage?> showProductImageChooser(
+  BuildContext context,
+  WidgetRef ref,
+  String name,
+) {
+  final search = ref.read(productImageChoicesProvider);
+  return showModalBottomSheet<ProductImage>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => _ImageChooser(name: name, search: search),
+  );
+}
+
+class _ImageChooser extends StatefulWidget {
+  const _ImageChooser({required this.name, required this.search});
+
+  final String name;
+  final Future<List<ProductImage>> Function(String name) search;
+
+  @override
+  State<_ImageChooser> createState() => _ImageChooserState();
+}
+
+class _ImageChooserState extends State<_ImageChooser> {
+  late final _query = TextEditingController(
+    text: cleanProductName(widget.name),
+  );
+  late Future<List<ProductImage>> _results = widget.search(widget.name);
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _searchAgain() {
+    final text = _query.text.trim();
+    if (text.isEmpty) return;
+    final results = widget.search(text);
+    setState(() {
+      _results = results;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      // Die Tastatur schiebt das Raster nach oben statt es zu verdecken.
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.8,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  'Bild für „${widget.name.trim()}“ aussuchen',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  controller: _query,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    labelText: 'Anders suchen',
+                    hintText: 'z. B. „Rote Paprika“',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: 'Suchen',
+                      icon: const Icon(Icons.search),
+                      onPressed: _searchAgain,
+                    ),
+                  ),
+                  onSubmitted: (_) => _searchAgain(),
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<List<ProductImage>>(
+                  future: _results,
+                  builder: (context, snap) {
+                    if (snap.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final list = snap.data ?? const <ProductImage>[];
+                    if (list.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'Keine Bilder gefunden. Probier ein anderes Wort '
+                            'oder mach selbst ein Foto.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 160,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                          ),
+                      itemCount: list.length,
+                      itemBuilder: (context, i) => Semantics(
+                        button: true,
+                        label: 'Bild ${i + 1} nehmen',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.of(context).pop(list[i]),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: ColoredBox(
+                              color: scheme.surfaceContainerHighest,
+                              child: Image.network(
+                                list[i].url,
+                                fit: BoxFit.cover,
+                                cacheWidth: 400,
+                                errorBuilder: (context, error, stack) =>
+                                    const Icon(Icons.broken_image_outlined),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// households/{id}/itemImages/{key}: das automatisch gefundene Bild je
 /// Artikelname. [url] '' heißt: gesucht, nichts gefunden, oder [hidden]
 /// (ausgeblendet, weil es nicht passte).
 class ItemImageInfo {
-  const ItemImageInfo({required this.url, this.page, this.hidden = false});
+  const ItemImageInfo({
+    required this.url,
+    this.page,
+    this.hidden = false,
+    this.picked = false,
+    this.version = itemImageVersion,
+  });
 
   final String url;
   final String? page;
   final bool hidden;
 
+  /// Von Hand aus den Vorschlägen ausgesucht: nie automatisch ersetzen.
+  final bool picked;
+
+  /// Mit welcher Suche das Bild gefunden wurde. Ältere Treffer werden mit der
+  /// besseren Suche neu gesucht, außer sie wurden ausgeblendet oder von Hand
+  /// ausgesucht.
+  final int version;
+
   bool get shows => url.isNotEmpty && !hidden;
+
+  bool get outdated => version < itemImageVersion && !picked && !hidden;
 }
+
+/// Version der automatischen Bildsuche (2: handverlesene Fotos für häufige
+/// Produkte, strengere Wikipedia-Suche).
+const itemImageVersion = 2;
 
 /// null: für diesen Namen wurde noch nicht gesucht.
 final itemImageProvider = StreamProvider.family<ItemImageInfo?, ItemPhotoKey>(
@@ -557,6 +752,8 @@ final itemImageProvider = StreamProvider.family<ItemImageInfo?, ItemPhotoKey>(
           url: d['url'] as String? ?? '',
           page: d['page'] as String?,
           hidden: d['hidden'] == true,
+          picked: d['picked'] == true,
+          version: (d['v'] as num?)?.toInt() ?? 1,
         );
       }),
 );
@@ -567,6 +764,13 @@ final productImageFinderProvider =
       final client = ref.watch(httpClientProvider);
       return (name) =>
           fetchProductImage(client, name, keyword: itemKeyword(name));
+    });
+
+/// Bildvorschläge zum Aussuchen von Hand. Im Test ersetzbar.
+final productImageChoicesProvider =
+    Provider<Future<List<ProductImage>> Function(String name)>((ref) {
+      final client = ref.watch(httpClientProvider);
+      return (name) => searchProductImages(client, name);
     });
 
 /// Namen, für die schon gesucht wird (nicht doppelt suchen, auch nicht,
@@ -589,6 +793,7 @@ Future<void> _findItemImage(
         'name': name.trim(),
         'url': image?.url ?? '',
         'page': image?.page,
+        'v': itemImageVersion,
         'createdAt': FieldValue.serverTimestamp(),
       }),
     );
@@ -619,7 +824,9 @@ class ItemPicture extends ConsumerWidget {
     final key = (householdId: householdId, name: name);
     final photo = ref.watch(itemPhotoProvider(key)).value;
     final auto = ref.watch(itemImageProvider(key));
-    if (photo == null && auto.hasValue && auto.value == null) {
+    if (photo == null &&
+        auto.hasValue &&
+        (auto.value == null || auto.value!.outdated)) {
       Future.microtask(() => _findItemImage(ref, householdId, name));
     }
     final info = auto.value;
