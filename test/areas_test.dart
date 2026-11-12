@@ -52,7 +52,7 @@ void main() {
       tester,
     ) async {
       await pumpPage(tester, const ShoppingScreen(householdId: 'h1'));
-      await tester.enterText(find.byType(TextField), 'Käse');
+      await tester.enterText(find.byType(TextField).first, 'Käse');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await settle(tester);
       expect(find.text('Käse'), findsOneWidget);
@@ -68,7 +68,7 @@ void main() {
 
     testWidgets('Leere Eingabe legt nichts an', (tester) async {
       await pumpPage(tester, const ShoppingScreen(householdId: 'h1'));
-      await tester.enterText(find.byType(TextField), '   ');
+      await tester.enterText(find.byType(TextField).first, '   ');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await settle(tester);
       expect(await docs('shoppingItems'), hasLength(1));
