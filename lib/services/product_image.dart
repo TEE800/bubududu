@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'product_photos.dart';
+
 /// Ein frei lizenziertes Bild zu einem Produkt aus der deutschen Wikipedia.
 class ProductImage {
   const ProductImage({required this.url, required this.page});
@@ -89,9 +91,13 @@ bool productMatches(String name, String article) {
   final b = productWords(article);
   bool fits(String x, String y) {
     final (short, long) = x.length <= y.length ? (x, y) : (y, x);
-    // Hinten angehängt nur ab 4 Buchstaben, damit „Eis“ nicht zu „Reis“ passt.
-    return long.startsWith(short) ||
-        (short.length >= 4 && long.endsWith(short));
+    if (short == long) return true;
+    // Nur Mehrzahl- und Beugungsendungen („Nudel“ – „Nudeln“), sonst passt
+    // „Milch“ zu „Milchstraße“ oder „Käse“ zu „Käsekuchen“.
+    if (long.startsWith(short) && long.length - short.length <= 2) return true;
+    // Hinten angehängt („Vollmilch“ ist eine Milch) nur ab 4 Buchstaben,
+    // damit „Eis“ nicht zu „Reis“ passt.
+    return short.length >= 4 && long.endsWith(short);
   }
 
   return a.any((x) => b.any((y) => fits(x, y)));
@@ -137,6 +143,8 @@ Future<ProductImage?> fetchProductImage(
     'inprop': 'url',
     'redirects': '1',
   };
+  final curated = curatedProductPhoto(name);
+  if (curated != null) return curated;
   final queries = productQueries(name, keyword: keyword);
   for (final query in queries) {
     final exact = await _query(client, {...base, 'titles': query});
@@ -148,10 +156,142 @@ Future<ProductImage?> fetchProductImage(
       'generator': 'search',
       'gsrsearch': query,
       'gsrlimit': '5',
-    }, matches: (article) => productMatches(query, article));
+    }, matches: (article) => searchHitFits(query, article));
     if (hit != null) return hit;
   }
   return null;
+}
+
+/// Ein Suchtreffer muss zum Namen passen und darf kein Artikel über etwas
+/// ganz anderes sein, das nur so heißt: „Quark (Physik)“, „Sahne (Band)“.
+bool searchHitFits(String query, String article) {
+  final paren = RegExp(r'\(([^)]*)\)').firstMatch(article);
+  if (paren != null &&
+      !RegExp(
+        r'lebensmittel|speise|getränk|gericht|gewürz|käse|wurst|brot|obst|gemüse|pflanze',
+        caseSensitive: false,
+      ).hasMatch(paren.group(1)!)) {
+    return false;
+  }
+  return productMatches(query, article.replaceAll(RegExp(r'\(.*?\)'), ''));
+}
+
+/// Bilder, die zwar zum Artikel gehören, aber kein Produkt zeigen: alte
+/// Pflanzenzeichnungen (Köhler, Thomé), Herbarbelege, Karten, Flaggen,
+/// Wappen, Strukturformeln, Mikroskopbilder.
+bool looksLikeNoProduct(String imageUrl) {
+  final file = Uri.decodeFull(imageUrl.split('/').last).toLowerCase();
+  return RegExp(
+    r'koehler|köhler|thom[eé]|illustration|herbar|mhnt|botanical|tafel|'
+    r'flag|flagge|wappen|coat_of_arms|karte|map|locator|lokalisierung|'
+    r'structur|struktur|formel|formula|skeletal|molecule|microscop|mikroskop|'
+    r'\.svg|diagram|logo|portrait|porträt',
+  ).hasMatch(file);
+}
+
+/// Mehrere Bildvorschläge zum Produkt [name], zum Aussuchen von Hand:
+/// das handverlesene Foto, Bilder passender Wikipedia-Artikel und Fotos
+/// aus Wikimedia Commons. Höchstens [limit] Stück, ohne doppelte.
+Future<List<ProductImage>> searchProductImages(
+  http.Client client,
+  String name, {
+  int limit = 18,
+}) async {
+  final clean = cleanProductName(name);
+  if (clean.isEmpty) return const [];
+  final found = <String, ProductImage>{};
+  void add(ProductImage? image) {
+    if (image != null && found.length < limit) {
+      found.putIfAbsent(image.url, () => image);
+    }
+  }
+
+  add(curatedProductPhoto(name));
+  try {
+    final wiki = await _get(client, 'de.wikipedia.org', {
+      'action': 'query',
+      'format': 'json',
+      'formatversion': '2',
+      'origin': '*',
+      'generator': 'search',
+      'gsrsearch': clean,
+      'gsrlimit': '12',
+      'prop': 'pageimages|info',
+      'piprop': 'thumbnail',
+      'pithumbsize': '500',
+      'pilicense': 'free',
+      'inprop': 'url',
+    });
+    for (final p in _pages(wiki)) {
+      final source = (p['thumbnail'] as Map?)?['source'];
+      if (source is! String || source.isEmpty) continue;
+      add(
+        ProductImage(
+          url: source,
+          page: p['fullurl'] as String? ?? 'https://de.wikipedia.org',
+        ),
+      );
+    }
+  } on Exception {
+    // Dann eben nur die anderen Quellen.
+  }
+  try {
+    final commons = await _get(client, 'commons.wikimedia.org', {
+      'action': 'query',
+      'format': 'json',
+      'formatversion': '2',
+      'origin': '*',
+      'generator': 'search',
+      'gsrnamespace': '6',
+      'gsrsearch': '$clean filetype:bitmap',
+      'gsrlimit': '18',
+      'prop': 'imageinfo',
+      'iiprop': 'url',
+      'iiurlwidth': '500',
+    });
+    for (final p in _pages(commons)) {
+      final info = ((p['imageinfo'] as List?) ?? const []).firstOrNull;
+      if (info is! Map) continue;
+      final thumb = info['thumburl'];
+      if (thumb is! String || thumb.isEmpty) continue;
+      add(
+        ProductImage(
+          url: thumb,
+          page:
+              info['descriptionurl'] as String? ??
+              'https://commons.wikimedia.org',
+        ),
+      );
+    }
+  } on Exception {
+    // Nichts gefunden.
+  }
+  return found.values.toList();
+}
+
+Future<Object?> _get(
+  http.Client client,
+  String host,
+  Map<String, String> params,
+) async {
+  final res = await client.get(
+    Uri.https(host, '/w/api.php', params),
+    headers: {'Api-User-Agent': 'BubuDudu-App'},
+  );
+  if (res.statusCode != 200) return null;
+  try {
+    return jsonDecode(res.body);
+  } on FormatException {
+    return null;
+  }
+}
+
+List<Map> _pages(Object? body) {
+  if (body is! Map) return const [];
+  return [
+    for (final p in (body['query']?['pages'] as List?) ?? const [])
+      if (p is Map) p,
+  ]..sort((a, b) => _index(a).compareTo(_index(b)));
 }
 
 Future<ProductImage?> _query(
@@ -183,6 +323,7 @@ Future<ProductImage?> _query(
     }
     final source = (p['thumbnail'] as Map?)?['source'];
     if (source is! String || source.isEmpty) continue;
+    if (looksLikeNoProduct(source)) continue;
     final title = p['title'] as String? ?? '';
     if (matches != null && !matches(title)) continue;
     return ProductImage(
