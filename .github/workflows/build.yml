@@ -48,6 +48,9 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Fest, damit eine neue Flutter-Version den Bau nicht plötzlich
+          # bricht (3.50 markiert z. B. jeden Material-Import als veraltet).
+          flutter-version: 3.47.9
           cache: true
 
       - run: flutter pub get
