@@ -181,6 +181,22 @@ void main() {
           .firstWhere((e) => e['title'] == 'Zahnarzt');
       expect(event['createdBy'], 'kevin');
       expect(event['date'], isNotNull);
+      expect(event['reminders'], ['0d']);
+    });
+
+    testWidgets('Termin mit eigener Erinnerung', (tester) async {
+      await pumpPage(tester, const EventEditScreen(householdId: 'h1'));
+      await fill(tester, 'Was?', 'Friseur');
+      await tester.ensureVisible(find.text('Am Tag, 8 Uhr'));
+      await tester.tap(find.text('Am Tag, 8 Uhr'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Vortag, 18 Uhr'));
+      await tester.tap(find.text('Vortag, 18 Uhr'));
+      await tester.pump();
+      await save(tester);
+      final event = (await docs('events'))
+          .firstWhere((e) => e['title'] == 'Friseur');
+      expect(event['reminders'], ['1d']);
     });
 
     testWidgets('Termin ohne Namen wird nicht gespeichert', (tester) async {

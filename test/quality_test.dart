@@ -97,7 +97,7 @@ void main() {
           ),
         ],
       );
-      final eve = reminders.firstWhere((r) => r.key.endsWith(':eve'));
+      final eve = reminders.firstWhere((r) => r.key.endsWith(':1d'));
       expect(eve.at, DateTime(2026, 3, 29, 18));
     });
   });

@@ -22,6 +22,7 @@ class CalendarEvent {
     required this.note,
     this.createdBy = '',
     this.googleId,
+    this.reminders,
   });
 
   final String id;
@@ -42,6 +43,14 @@ class CalendarEvent {
   /// Aus dem Google-Kalender von [createdBy] übernommen (Termin-ID dort).
   final String? googleId;
 
+  /// Gewählte Erinnerungen (Codes aus [timedReminderOptions] bzw.
+  /// [allDayReminderOptions]). null = Standard, leer = keine Erinnerung.
+  final List<String>? reminders;
+
+  /// Die Erinnerungen, die tatsächlich gelten.
+  List<String> get activeReminders =>
+      reminders ?? defaultReminders(timed: time != null, yearly: yearly);
+
   factory CalendarEvent.fromDoc(Doc d) => CalendarEvent(
     id: d.id,
     title: d.data['title'] as String? ?? '',
@@ -52,7 +61,73 @@ class CalendarEvent {
     note: d.data['note'] as String? ?? '',
     createdBy: d.data['createdBy'] as String? ?? '',
     googleId: d.data['googleId'] as String?,
+    reminders: (d.data['reminders'] as List?)?.whereType<String>().toList(),
   );
+}
+
+/// Eine Auswahl, wann vor einem Termin erinnert wird.
+class ReminderOption {
+  const ReminderOption(
+    this.code,
+    this.label,
+    this.prefix, {
+    this.days = 0,
+    this.minutes = 0,
+  });
+
+  /// Wird so in Firestore gespeichert.
+  final String code;
+
+  /// Text auf dem Auswahl-Chip.
+  final String label;
+
+  /// Anfang der Benachrichtigung, z. B. "In einer Stunde".
+  final String prefix;
+  final int days;
+  final int minutes;
+}
+
+/// Für Termine mit Uhrzeit: so lange vor dem Beginn.
+const timedReminderOptions = [
+  ReminderOption('0m', 'Zum Beginn', 'Jetzt'),
+  ReminderOption('10m', '10 Min. vorher', 'In 10 Minuten', minutes: 10),
+  ReminderOption('30m', '30 Min. vorher', 'In 30 Minuten', minutes: 30),
+  ReminderOption('1h', '1 Std. vorher', 'In einer Stunde', minutes: 60),
+  ReminderOption('2h', '2 Std. vorher', 'In zwei Stunden', minutes: 120),
+  ReminderOption('1d', '1 Tag vorher', 'Morgen', days: 1),
+  ReminderOption('2d', '2 Tage vorher', 'Übermorgen', days: 2),
+  ReminderOption('1w', '1 Woche vorher', 'In einer Woche', days: 7),
+];
+
+/// Für ganztägige Termine: am Tag um 8 Uhr, sonst am Abend davor um 18 Uhr.
+const allDayReminderOptions = [
+  ReminderOption('0d', 'Am Tag, 8 Uhr', 'Heute'),
+  ReminderOption('1d', 'Vortag, 18 Uhr', 'Morgen', days: 1),
+  ReminderOption('2d', '2 Tage vorher', 'Übermorgen', days: 2),
+  ReminderOption('1w', '1 Woche vorher', 'In einer Woche', days: 7),
+];
+
+List<ReminderOption> reminderOptions({required bool timed}) =>
+    timed ? timedReminderOptions : allDayReminderOptions;
+
+/// Was gilt, wenn man nichts auswählt (so wie es die App schon immer machte).
+List<String> defaultReminders({required bool timed, required bool yearly}) => [
+  timed ? '1h' : '0d',
+  if (yearly) '1d',
+];
+
+/// Passt die Auswahl an, wenn ein Termin Uhrzeit bekommt oder ganztägig wird.
+List<String> convertReminders(List<String> codes, {required bool timed}) {
+  final valid = {for (final o in reminderOptions(timed: timed)) o.code};
+  return {
+    for (final c in codes)
+      if (valid.contains(c))
+        c
+      else if (c == '0m' && !timed)
+        '0d'
+      else if (c == '0d' && timed)
+        '0m',
+  }.toList();
 }
 
 /// Ein Vorkommen eines Termins an einem bestimmten Tag.
@@ -393,6 +468,26 @@ class _EventEditScreenState extends ConsumerState<EventEditScreen> {
   late String _who = widget.event?.who ?? '';
   late bool _yearly = widget.event?.yearly ?? false;
 
+  /// null = Standard, der sich nach Uhrzeit und "Jedes Jahr" richtet.
+  late List<String>? _reminders = widget.event?.reminders;
+
+  List<String> get _activeReminders =>
+      _reminders ?? defaultReminders(timed: _time != null, yearly: _yearly);
+
+  void _setTime(String? time) {
+    final wasTimed = _time != null;
+    _time = time;
+    if (_reminders != null && wasTimed != (time != null)) {
+      _reminders = convertReminders(_reminders!, timed: time != null);
+    }
+  }
+
+  void _toggleReminder(String code, bool on) {
+    final next = [..._activeReminders]..remove(code);
+    if (on) next.add(code);
+    setState(() => _reminders = next);
+  }
+
   @override
   void dispose() {
     _title.dispose();
@@ -412,8 +507,9 @@ class _EventEditScreenState extends ConsumerState<EventEditScreen> {
     );
     if (picked != null) {
       setState(() {
-        _time =
-            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+        _setTime(
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}',
+        );
       });
     }
   }
@@ -432,6 +528,7 @@ class _EventEditScreenState extends ConsumerState<EventEditScreen> {
         'time': _time,
         'who': _who,
         'yearly': _yearly,
+        'reminders': _activeReminders,
         'note': _note.text.trim(),
       },
     );
@@ -485,7 +582,7 @@ class _EventEditScreenState extends ConsumerState<EventEditScreen> {
               IconButton(
                 tooltip: 'Ganztägig',
                 icon: const Icon(Icons.clear),
-                onPressed: () => setState(() => _time = null),
+                onPressed: () => setState(() => _setTime(null)),
               ),
           ],
         ),
@@ -501,11 +598,72 @@ class _EventEditScreenState extends ConsumerState<EventEditScreen> {
           value: _yearly,
           onChanged: (v) => setState(() => _yearly = v),
         ),
+        _ReminderPicker(
+          timed: _time != null,
+          selected: _activeReminders,
+          onToggle: _toggleReminder,
+        ),
         TextField(
           controller: _note,
           decoration: const InputDecoration(labelText: 'Notiz (optional)'),
           maxLines: null,
           textCapitalization: TextCapitalization.sentences,
+        ),
+      ],
+    );
+  }
+}
+
+/// Auswahl, wann die App vor dem Termin erinnert (mehrere möglich).
+class _ReminderPicker extends StatelessWidget {
+  const _ReminderPicker({
+    required this.timed,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final bool timed;
+  final List<String> selected;
+  final void Function(String code, bool on) onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              selected.isEmpty
+                  ? Icons.notifications_off_outlined
+                  : Icons.notifications_active_outlined,
+              size: 20,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text('Erinnern', style: theme.textTheme.titleSmall),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final o in reminderOptions(timed: timed))
+              FilterChip(
+                label: Text(o.label),
+                selected: selected.contains(o.code),
+                onSelected: (on) => onToggle(o.code, on),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          selected.isEmpty ? 'Keine Erinnerung für diesen Termin.' : 'Kommt als Benachrichtigung aufs Handy, bei allen, für die der Termin ist.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );

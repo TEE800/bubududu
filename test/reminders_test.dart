@@ -17,6 +17,7 @@ void main() {
     String? time,
     String who = '',
     bool yearly = false,
+    List<String>? reminders,
   }) => CalendarEvent(
     id: title,
     title: title,
@@ -25,6 +26,7 @@ void main() {
     who: who,
     yearly: yearly,
     note: '',
+    reminders: reminders,
   );
 
   List<String> titles(List<Reminder> r) => [
@@ -55,6 +57,60 @@ void main() {
       '4.11. 18:00 Morgen: Geburtstag Oma',
       '5.11. 8:00 Heute: Geburtstag Oma',
     ]);
+  });
+
+  test('Selbst gewählte Erinnerungen mit Uhrzeit', () {
+    final r = computeReminders(
+      uid: 'kevin',
+      now: now,
+      events: [
+        event(
+          'Zahnarzt',
+          DateTime(2026, 10, 30),
+          time: '14:30',
+          reminders: ['10m', '1d', '0m'],
+        ),
+      ],
+    );
+    expect(titles(r), [
+      '29.10. 14:30 Morgen: Zahnarzt',
+      '30.10. 14:20 In 10 Minuten: Zahnarzt',
+      '30.10. 14:30 Jetzt: Zahnarzt',
+    ]);
+  });
+
+  test('Ganztägig mit Erinnerung eine Woche vorher', () {
+    final r = computeReminders(
+      uid: 'kevin',
+      now: now,
+      events: [
+        event('Umzug', DateTime(2026, 11, 10), reminders: ['1w', '2d']),
+        // weiter als 30 Tage weg, die Erinnerung eine Woche vorher aber nicht
+        event('Konzert', DateTime(2026, 12, 1), reminders: ['1w']),
+      ],
+    );
+    expect(titles(r), [
+      '3.11. 18:00 In einer Woche: Umzug',
+      '8.11. 18:00 Übermorgen: Umzug',
+      '24.11. 18:00 In einer Woche: Konzert',
+    ]);
+  });
+
+  test('Keine Erinnerung, wenn abgewählt', () {
+    final r = computeReminders(
+      uid: 'kevin',
+      now: now,
+      events: [
+        event('Kino', DateTime(2026, 10, 29), time: '20:00', reminders: []),
+      ],
+    );
+    expect(r, isEmpty);
+  });
+
+  test('Uhrzeit dazu oder weg: Auswahl wird übernommen', () {
+    expect(convertReminders(['0m', '10m', '1d'], timed: false), ['0d', '1d']);
+    expect(convertReminders(['0d', '1w'], timed: true), ['0m', '1w']);
+    expect(defaultReminders(timed: true, yearly: true), ['1h', '1d']);
   });
 
   test('Nur eigene oder gemeinsame Termine', () {
