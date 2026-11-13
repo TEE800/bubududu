@@ -66,28 +66,32 @@ List<Reminder> computeReminders({
 
   bool forMe(String who) => who.isEmpty || who == uid;
 
-  for (final o in occurrences(events, now, end)) {
+  // Etwas weiter vorausschauen, damit "1 Woche vorher" nicht verloren geht.
+  for (final o in occurrences(events, now, addDays(end, 8))) {
     final e = o.event;
     if (!forMe(e.who)) continue;
     final key = 'event:${e.id}:${o.day.toIso8601String()}';
     final time = _parseTime(e.time);
-    if (time != null) {
-      final start = _at(o.day, time.$1, time.$2);
+    for (final opt in reminderOptions(timed: time != null)) {
+      if (!e.activeReminders.contains(opt.code)) continue;
+      final DateTime at;
+      final String body;
+      if (time != null) {
+        at = _at(
+          addDays(o.day, -opt.days),
+          time.$1,
+          time.$2,
+        ).subtract(Duration(minutes: opt.minutes));
+        body = 'Um ${e.time} Uhr';
+      } else {
+        at = opt.days == 0 ? _at(o.day, 8) : _at(addDays(o.day, -opt.days), 18);
+        body = 'Ganztägig';
+      }
       add(
-        '$key:1h',
-        start.subtract(const Duration(hours: 1)),
-        'In einer Stunde: ${e.title}',
-        'Um ${e.time} Uhr',
-      );
-    } else {
-      add('$key:day', _at(o.day, 8), 'Heute: ${e.title}', 'Ganztägig');
-    }
-    if (e.yearly) {
-      add(
-        '$key:eve',
-        _at(addDays(o.day, -1), 18),
-        'Morgen: ${e.title}',
-        'Schon an ein Geschenk gedacht?',
+        '$key:${opt.code}',
+        at,
+        '${opt.prefix}: ${e.title}',
+        e.yearly && opt.days > 0 ? 'Schon an ein Geschenk gedacht?' : body,
       );
     }
   }
