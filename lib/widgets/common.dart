@@ -92,11 +92,13 @@ Future<bool> confirmDelete(BuildContext context, String what) async {
 }
 
 /// Namen der Haushaltsmitglieder (uid → Name), leer solange geladen wird.
+/// Enthält Bubu als Platzhalter, solange er noch nicht beigetreten ist.
 Map<String, String> memberNames(WidgetRef ref, String householdId) =>
-    ref.watch(householdProvider(householdId)).value?.memberNames ?? const {};
+    ref.watch(householdProvider(householdId)).value?.peopleNames ?? const {};
 
+/// Beide Personen für Auswahlen, siehe [Household.people].
 List<String> memberIds(WidgetRef ref, String householdId) =>
-    ref.watch(householdProvider(householdId)).value?.members ?? const [];
+    ref.watch(householdProvider(householdId)).value?.people ?? const [];
 
 /// Auswahl "Beide" oder eine Person. '' steht für beide.
 class MemberPicker extends ConsumerWidget {
@@ -120,8 +122,8 @@ class MemberPicker extends ConsumerWidget {
     final Household? household = ref
         .watch(householdProvider(householdId))
         .value;
-    final names = household?.memberNames ?? const {};
-    final ids = household?.members ?? const [];
+    final names = household?.peopleNames ?? const {};
+    final ids = household?.people ?? const [];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
