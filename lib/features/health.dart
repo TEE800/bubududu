@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/offline.dart';
+import '../data/providers.dart';
 import '../data/store.dart';
 import '../util/dates.dart';
 import '../widgets/common.dart';
@@ -189,8 +190,10 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = ref.watch(uidProvider);
-    final ids = memberIds(ref, widget.householdId);
-    final names = memberNames(ref, widget.householdId);
+    // Gesundheit gehört zum eigenen Konto: nur echte Mitglieder, kein Platzhalter.
+    final household = ref.watch(householdProvider(widget.householdId)).value;
+    final ids = household?.members ?? const <String>[];
+    final names = household?.memberNames ?? const <String, String>{};
     final person = _person ?? uid;
     final entries = ref.watch(healthEntriesProvider(widget.householdId));
     final profile = ref.watch(

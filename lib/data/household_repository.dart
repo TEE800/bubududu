@@ -115,6 +115,48 @@ class HouseholdRepository {
       }
       rethrow;
     }
+    try {
+      await adoptPartnerPlaceholder(householdId, uid);
+    } catch (_) {
+      // Nicht schlimm: dann bleibt Bubu bei alten Einträgen als Platzhalter.
+    }
+  }
+
+  /// Bereiche, in denen Bubu als Platzhalter eingetragen sein kann.
+  static const placeholderCollections = [
+    'expenses',
+    'contracts',
+    'tasks',
+    'events',
+    'trips',
+    'care',
+    'mealPlan',
+    'notes',
+    'ideas',
+    'pantry',
+  ];
+
+  /// Ersetzt den Platzhalter [kPartnerPlaceholder] in allen Einträgen des
+  /// Haushalts durch die echte Nutzer-ID [uid] des Partners.
+  Future<void> adoptPartnerPlaceholder(String householdId, String uid) async {
+    for (final name in placeholderCollections) {
+      final docs = await _household(householdId).collection(name).get();
+      WriteBatch? batch;
+      var count = 0;
+      for (final doc in docs.docs) {
+        final data = doc.data();
+        final replaced = replacePlaceholder(data, uid);
+        if (identical(replaced, data)) continue;
+        batch ??= _db.batch();
+        batch.set(doc.reference, replaced as Map<String, dynamic>);
+        if (++count == 400) {
+          await batch.commit();
+          batch = null;
+          count = 0;
+        }
+      }
+      await batch?.commit();
+    }
   }
 
   Stream<List<ShoppingItem>> watchShoppingItems(String householdId) =>
@@ -302,4 +344,35 @@ class HouseholdRepository {
     final rnd = Random.secure();
     return List.generate(6, (_) => chars[rnd.nextInt(chars.length)]).join();
   }
+}
+
+/// Ersetzt überall in [value] (auch in Listen und Maps, auch als Schlüssel)
+/// den Platzhalter durch [uid]. Gibt bei keiner Änderung [value] selbst zurück.
+Object? replacePlaceholder(Object? value, String uid) {
+  if (value == kPartnerPlaceholder) return uid;
+  if (value is List) {
+    var changed = false;
+    final out = [
+      for (final v in value)
+        () {
+          final r = replacePlaceholder(v, uid);
+          if (!identical(r, v)) changed = true;
+          return r;
+        }(),
+    ];
+    return changed ? out : value;
+  }
+  if (value is Map) {
+    var changed = false;
+    final out = <String, dynamic>{};
+    value.forEach((k, v) {
+      final key = k == kPartnerPlaceholder ? uid : k as String;
+      if (key != k) changed = true;
+      final r = replacePlaceholder(v, uid);
+      if (!identical(r, v)) changed = true;
+      out[key] = r;
+    });
+    return changed ? out : value;
+  }
+  return value;
 }

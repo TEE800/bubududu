@@ -32,6 +32,12 @@ enum NotifyKind {
   partner,
 }
 
+/// Platzhalter für Bubu, solange er dem Haushalt noch nicht beigetreten ist.
+/// So kann man ihn trotzdem als Zahler, Zuständigen usw. auswählen. Beim
+/// Beitritt wird der Platzhalter überall durch seine echte Nutzer-ID ersetzt.
+const kPartnerPlaceholder = 'bubu';
+const kPartnerPlaceholderName = 'Bubu';
+
 class Household {
   const Household({
     required this.id,
@@ -46,6 +52,17 @@ class Household {
   final String inviteCode;
   final List<String> members;
   final Map<String, String> memberNames;
+
+  /// Die beiden Personen für Auswahlen: die Mitglieder und, solange erst
+  /// einer beigetreten ist, Bubu als Platzhalter.
+  List<String> get people => members.length >= 2 || members.isEmpty
+      ? members
+      : [...members, kPartnerPlaceholder];
+
+  /// Namen zu [people], inklusive Platzhalter.
+  Map<String, String> get peopleNames => people.contains(kPartnerPlaceholder)
+      ? {...memberNames, kPartnerPlaceholder: kPartnerPlaceholderName}
+      : memberNames;
 
   factory Household.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};

@@ -1,4 +1,5 @@
 import 'package:bubududu/data/household_repository.dart';
+import 'package:bubududu/data/models.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,6 +38,65 @@ void main() {
       (await db.doc('users/partner').get()).data()!['householdId'],
       householdId,
     );
+  });
+
+  test('Bubu ist als Platzhalter wählbar, solange er nicht beigetreten ist',
+      () async {
+    await repo.createHousehold(
+      uid: 'kevin',
+      displayName: 'Dudu',
+      name: 'Zuhause',
+    );
+    final householdId =
+        (await db.doc('users/kevin').get()).data()!['householdId'] as String;
+    final alone = await repo.watchHousehold(householdId).first;
+    expect(alone.people, ['kevin', kPartnerPlaceholder]);
+    expect(alone.peopleNames, {'kevin': 'Dudu', kPartnerPlaceholder: 'Bubu'});
+
+    await db.doc('households/$householdId/expenses/e1').set({
+      'title': 'Pizza',
+      'paidBy': kPartnerPlaceholder,
+      'amountCents': 1200,
+    });
+    await db.doc('households/$householdId/contracts/c1').set({
+      'name': 'Strom',
+      'paidBy': 'kevin',
+    });
+    await db.doc('households/$householdId/trips/t1').set({
+      'packing': [
+        {'text': 'Zelt', 'who': kPartnerPlaceholder},
+      ],
+    });
+
+    await repo.joinHousehold(
+      uid: 'fritzi',
+      displayName: 'Bubu',
+      code: alone.inviteCode,
+    );
+
+    final both = await repo.watchHousehold(householdId).first;
+    expect(both.people, ['kevin', 'fritzi']);
+    expect(both.peopleNames, {'kevin': 'Dudu', 'fritzi': 'Bubu'});
+    final expense = await db.doc('households/$householdId/expenses/e1').get();
+    expect(expense.data()!['paidBy'], 'fritzi');
+    expect(expense.data()!['title'], 'Pizza');
+    final contract = await db.doc('households/$householdId/contracts/c1').get();
+    expect(contract.data()!['paidBy'], 'kevin');
+    final trip = await db.doc('households/$householdId/trips/t1').get();
+    expect((trip.data()!['packing'] as List).first['who'], 'fritzi');
+  });
+
+  test('Platzhalter wird auch in Maps und Schlüsseln ersetzt', () {
+    final data = {
+      'a': 1,
+      'shares': {kPartnerPlaceholder: 5, 'kevin': 3},
+    };
+    expect(replacePlaceholder(data, 'f'), {
+      'a': 1,
+      'shares': {'f': 5, 'kevin': 3},
+    });
+    final unchanged = {'paidBy': 'kevin'};
+    expect(identical(replacePlaceholder(unchanged, 'f'), unchanged), isTrue);
   });
 
   test('Unbekannter Code wirft eine verständliche Meldung', () async {
