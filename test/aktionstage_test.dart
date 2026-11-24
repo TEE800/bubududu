@@ -274,7 +274,6 @@ void main() {
       final c = ProviderContainer(
         overrides: [clockProvider.overrideWithValue(() => now)],
       );
-      addTearDown(c.dispose);
       c.listen(todayProvider, (_, _) {});
       expect(c.read(todayProvider), DateTime(2026, 11, 23));
       expect(startseite(c.read(todayProvider)), contains('Fibonacci-Tag'));
@@ -283,6 +282,7 @@ void main() {
       await tester.pump(const Duration(minutes: 3));
       expect(c.read(todayProvider), DateTime(2026, 11, 24));
       expect(startseite(c.read(todayProvider)), ['Tag der Evolution']);
+      c.dispose();
     });
 
     testWidgets('nach dem Aufwachen spätestens nach 15 Minuten aktuell', (
@@ -293,11 +293,11 @@ void main() {
       final c = ProviderContainer(
         overrides: [clockProvider.overrideWithValue(() => now)],
       );
-      addTearDown(c.dispose);
       c.listen(todayProvider, (_, _) {});
       now = DateTime(2026, 11, 24, 9);
       await tester.pump(TodayNotifier.maxCheckInterval);
       expect(c.read(todayProvider), DateTime(2026, 11, 24));
+      c.dispose();
     });
 
     testWidgets('beim Zurückkehren in die App sofort aktuell', (tester) async {
@@ -305,12 +305,12 @@ void main() {
       final c = ProviderContainer(
         overrides: [clockProvider.overrideWithValue(() => now)],
       );
-      addTearDown(c.dispose);
       c.listen(todayProvider, (_, _) {});
       now = DateTime(2026, 11, 24, 7);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(c.read(todayProvider), DateTime(2026, 11, 24));
+      c.dispose();
     });
 
     test('Zeitumstellung verschiebt den Tag nicht', () {
