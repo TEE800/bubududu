@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,26 +47,62 @@ final stockSymbolsProvider = Provider.family<List<String>, String>(
   ),
 );
 
-/// Der heutige Tag. Wechselt, wenn die App nach Mitternacht wieder in den
-/// Vordergrund kommt, damit die Startseite (z. B. der Aktionstag) nicht beim
-/// Tag hängen bleibt, an dem sie zuletzt gebaut wurde.
+/// Die Uhr, nach der sich die Startseite richtet. In Tests austauschbar.
+final clockProvider = Provider<DateTime Function()>((_) => DateTime.now);
+
+/// Der heutige Tag (ohne Uhrzeit). Damit die Startseite (z. B. der
+/// Aktionstag) nie beim Tag hängen bleibt, an dem sie zuletzt gebaut wurde,
+/// wird das Datum gleich dreifach geprüft:
+/// - kurz nach Mitternacht, auch wenn die App die ganze Zeit offen ist,
+/// - spätestens alle 15 Minuten (falls Handy oder Laptop geschlafen haben
+///   und der Mitternachts-Wecker zu spät oder gar nicht kam),
+/// - sobald die App wieder in den Vordergrund kommt.
+/// Früher gab es nur den letzten Punkt; im Browser oder wenn die App nicht
+/// sauber als „wieder geöffnet“ gemeldet wurde, stand dann der Aktionstag
+/// von gestern da.
 final todayProvider = NotifierProvider<TodayNotifier, DateTime>(
   TodayNotifier.new,
 );
 
 class TodayNotifier extends Notifier<DateTime> with WidgetsBindingObserver {
+  /// Wie lange höchstens zwischen zwei Prüfungen vergeht.
+  static const maxCheckInterval = Duration(minutes: 15);
+
+  Timer? _timer;
+
   @override
   DateTime build() {
     WidgetsBinding.instance.addObserver(this);
-    ref.onDispose(() => WidgetsBinding.instance.removeObserver(this));
-    return dateOnly(DateTime.now());
+    ref.onDispose(() {
+      WidgetsBinding.instance.removeObserver(this);
+      _timer?.cancel();
+    });
+    final now = ref.read(clockProvider)();
+    _schedule(now);
+    return dateOnly(now);
+  }
+
+  /// Prüft das Datum und stellt den nächsten Wecker.
+  void refresh() {
+    final now = ref.read(clockProvider)();
+    final today = dateOnly(now);
+    if (today != state) state = today;
+    _schedule(now);
+  }
+
+  void _schedule(DateTime now) {
+    _timer?.cancel();
+    final untilMidnight =
+        addDays(dateOnly(now), 1).difference(now) + const Duration(seconds: 1);
+    _timer = Timer(
+      untilMidnight < maxCheckInterval ? untilMidnight : maxCheckInterval,
+      refresh,
+    );
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
-    final today = dateOnly(DateTime.now());
-    if (today != this.state) this.state = today;
+    if (state == AppLifecycleState.resumed) refresh();
   }
 }
 
@@ -91,7 +129,7 @@ class DashboardScreen extends ConsumerWidget {
         .value;
     final name = household?.memberNames[uid] ?? '';
     ref.watch(todayProvider);
-    final now = DateTime.now();
+    final now = ref.read(clockProvider)();
     final greeting = now.hour < 11
         ? 'Guten Morgen'
         : now.hour < 18
