@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:bubududu/features/aktionstag_sheet.dart';
+import 'package:bubududu/features/dashboard.dart';
 import 'package:bubududu/services/weather.dart';
 import 'package:bubududu/services/wikipedia.dart';
 import 'package:bubududu/util/aktionstage.dart';
@@ -259,6 +260,70 @@ void main() {
       expect(find.textContaining('Kürbis schnitzen'), findsOneWidget);
       expect(find.text(lang), findsOneWidget);
       expect(find.text('Bei Wikipedia weiterlesen'), findsOneWidget);
+    });
+  });
+
+  group('Heutiger Tag auf der Startseite', () {
+    List<String> startseite(DateTime d) =>
+        aktionstageFuerStartseite(d).map((e) => e.$2.name).toList();
+
+    testWidgets('wechselt um Mitternacht, auch wenn die App offen bleibt', (
+      tester,
+    ) async {
+      var now = DateTime(2026, 11, 23, 23, 58);
+      final c = ProviderContainer(
+        overrides: [clockProvider.overrideWithValue(() => now)],
+      );
+      c.listen(todayProvider, (_, _) {});
+      expect(c.read(todayProvider), DateTime(2026, 11, 23));
+      expect(startseite(c.read(todayProvider)), contains('Fibonacci-Tag'));
+
+      now = DateTime(2026, 11, 24, 0, 0, 2);
+      await tester.pump(const Duration(minutes: 3));
+      expect(c.read(todayProvider), DateTime(2026, 11, 24));
+      expect(startseite(c.read(todayProvider)), ['Tag der Evolution']);
+      c.dispose();
+    });
+
+    testWidgets('nach dem Aufwachen spätestens nach 15 Minuten aktuell', (
+      tester,
+    ) async {
+      // Laptop/Handy hat geschlafen: der Mitternachts-Wecker kam nie.
+      var now = DateTime(2026, 11, 20, 14);
+      final c = ProviderContainer(
+        overrides: [clockProvider.overrideWithValue(() => now)],
+      );
+      c.listen(todayProvider, (_, _) {});
+      now = DateTime(2026, 11, 24, 9);
+      await tester.pump(TodayNotifier.maxCheckInterval);
+      expect(c.read(todayProvider), DateTime(2026, 11, 24));
+      c.dispose();
+    });
+
+    testWidgets('beim Zurückkehren in die App sofort aktuell', (tester) async {
+      var now = DateTime(2026, 11, 23, 22);
+      final c = ProviderContainer(
+        overrides: [clockProvider.overrideWithValue(() => now)],
+      );
+      c.listen(todayProvider, (_, _) {});
+      now = DateTime(2026, 11, 24, 7);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(c.read(todayProvider), DateTime(2026, 11, 24));
+      c.dispose();
+    });
+
+    test('Zeitumstellung verschiebt den Tag nicht', () {
+      // Ende der Sommerzeit (25. 10. 2026) und Beginn (28. 3. 2027).
+      expect(startseite(DateTime(2026, 10, 25, 0, 30)), isNotEmpty);
+      expect(
+        dateOnly(addDays(DateTime(2026, 10, 25, 0, 30), 1)),
+        DateTime(2026, 10, 26),
+      );
+      expect(
+        dateOnly(addDays(DateTime(2027, 3, 28, 0, 30), 1)),
+        DateTime(2027, 3, 29),
+      );
     });
   });
 }
